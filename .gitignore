@@ -1,0 +1,6 @@
+.cache
+.config
+.idea
+.local
+.npm
+node_modules
