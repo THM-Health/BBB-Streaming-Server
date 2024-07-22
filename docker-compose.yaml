@@ -1,15 +1,27 @@
-version: '3.3'
-
 services:
-  app:
-    platform: linux/amd64
+  worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: src/worker
+    environment:
+      - NODE_DEBUG=bull
+    volumes:
+      - ./src/worker:/home/streaming
+    depends_on:
+      - redis
+    deploy:
+      mode: replicated
+      replicas: 6
+  controller:
+    build:
+      context: src/controller
+    environment:
+      - NODE_DEBUG=bull
     ports:
       - "80:3000"
     volumes:
-        - .:/home/streaming
+        - ./src/controller:/home/streaming
+    depends_on:
+      - redis
   redis:
     image: redis:latest
     restart: always
@@ -17,3 +29,5 @@ services:
       - "6379:6379"
     volumes:
       - ./redis/dаta:/root/redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]

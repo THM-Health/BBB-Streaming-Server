@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/app.ts",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "build": "tsc",
+    "start": "node_modules/.bin/ts-node app.ts"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +26,7 @@
   },
   "dependencies": {
     "body-parser": "^1.20.2",
+    "bullmq": "^5.10.3",
     "express": "^4.19.2",
     "ioredis": "^5.4.1",
     "puppeteer-stream": "^3.0.11",
