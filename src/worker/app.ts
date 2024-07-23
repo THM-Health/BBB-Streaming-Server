@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { Worker, SandboxedJob } from 'bullmq';
+import { Worker, Job } from 'bullmq';
 import * as path from "node:path";
 
 const redisHost: string = process.env.REDIS_HOST || 'redis';

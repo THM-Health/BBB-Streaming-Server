@@ -10,7 +10,7 @@ services:
       - redis
     deploy:
       mode: replicated
-      replicas: 6
+      replicas: 1
   controller:
     build:
       context: src/controller
@@ -25,9 +25,7 @@ services:
   redis:
     image: redis:latest
     restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./redis/dаta:/root/redis
+    #volumes:
+    #  - ./redis/dаta:/root/redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
