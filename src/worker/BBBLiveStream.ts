@@ -1,4 +1,3 @@
-import Xvfb from "xvfb";
 import { launch, getStream } from "puppeteer-stream";
 import {ChildProcessWithoutNullStreams, spawn} from "node:child_process";
 import Redis from "ioredis";
@@ -25,14 +24,13 @@ export class BBBLiveStream{
     videoConferenceStream: ChildProcessWithoutNullStreams | undefined;
     pauseImageStream: ChildProcessWithoutNullStreams | undefined;
 
-    xvfb: Xvfb | undefined;
     browser: Browser | undefined;
     page: Page | undefined;
 
     showPauseImage: boolean = false;
     streamEnded: (() => void) | undefined;
     
-
+    bbbStream: any;
 
     constructor(job: SandboxedJob){
         this.job = job;
@@ -75,7 +73,7 @@ export class BBBLiveStream{
             }
         });
 
-        this.redis.on("message", (channel, message) => {
+        this.redis.on("message", async(channel, message) => {
             this.log(`Received ${message} from ${channel}`);
             const data = JSON.parse(message);
 
@@ -98,35 +96,19 @@ export class BBBLiveStream{
 
     async openBBBMeeting(){
         const options = {
-            headless: false,
             executablePath: "/usr/bin/google-chrome",
+            defaultViewport: { width, height },
             args: [
-                "--disable-infobars",
-                "--no-sandbox",
-                "--shm-size=2gb",
-                "--disable-dev-shm-usage",
-                "--start-fullscreen",
+                '--no-sandbox',
+                '--start-fullscreen',
+                '--disable-gpu',
                 `--window-size=${width},${height}`,
+                '--disable-setuid-sandbox',
+                `--ozone-override-screen-size=${width},${height}`,
+                '--headless=new',
             ],
         };
 
-        this.xvfb = new Xvfb({
-            silent: true,
-            xvfb_args: [
-                "-screen",
-                "0",
-                `${width}x${height}x24`,
-                "-ac",
-                "-nolisten",
-                "tcp",
-                "-dpi",
-                "96",
-                "+extension",
-                "RANDR",
-            ],
-        });
-
-        this.xvfb.startSync();
         this.browser = await launch(options);
 
         this.page = await this.browser.newPage();
@@ -175,9 +157,13 @@ export class BBBLiveStream{
                      if(this.showPauseImage && this.rtmpStream)
                         this.rtmpStream.stdin.write(videoData);
                 });
+
             } catch (error) {
                 this.log('Error during streaming: '+JSON.stringify(error));
-                this.log('Error during streaming: '+JSON.stringify(error));
+                // @ts-ignore
+                this.log('Error during streaming: '+JSON.stringify(error?.message));
+                // @ts-ignore
+                this.log('Error during streaming: '+JSON.stringify(error?.stack));
 
                 throw new Error('Error during streaming: '+JSON.stringify(error));
             }
@@ -193,9 +179,6 @@ export class BBBLiveStream{
 
         if(this.browser)
             await this.browser.close();
-
-        if(this.xvfb)
-            this.xvfb.stopSync();
        
         if(this.videoConferenceStream)
             this.videoConferenceStream.kill('SIGKILL');
@@ -242,7 +225,7 @@ export class BBBLiveStream{
     });
 
     ffmpeg.stderr.on('data', (data) => {
-        //this.log('FFmpeg rtmp output stream STDERR:'+ data.toString());
+        this.log('FFmpeg rtmp output stream STDERR:'+ data.toString());
     });
 
    
@@ -268,32 +251,34 @@ async streamVideoconference(){
 
         
         '-vcodec', 'libx264',
-        '-x264-params', 'keyint=120:scenecut=0',
-        '-crf', '18',
+        '-x264-params', 'keyint=60:scenecut=-1',
+        '-crf', '23',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
-        "-b:v", "10M",
+        "-b:v", "4000k",
+        '-bf', '0',
+        '-maxrate', '4000k',
+        '-minrate', '2000k',
+        '-bufsize', '8000k',
         '-r', '30',
         '-g', '15',
-        
-        '-bf', '0',
-        '-coder', '1',
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
 
         '-acodec', 'aac',
         "-b:a", "160k",
         "-ar", "48000",
         "-ac", "2",
 
-        "-threads", "0",
+        "-threads", "4",
 
         "-f", "mpegts", "-"
     ]);
 
-    let bbbStream: any;
     if(this.page){
         // @ts-ignore
-        bbbStream = await getStream(this.page, bbbStreamOptions);
-        bbbStream.pipe(ffmpeg.stdin);
+        this.bbbStream = await getStream(this.page, bbbStreamOptions);
+        this.bbbStream.pipe(ffmpeg.stdin);
     }
     else{
         throw new Error('Page not initialized');
@@ -301,7 +286,7 @@ async streamVideoconference(){
 
     ffmpeg.on('close', (code, signal) => {
         this.log('FFmpeg video conf. child process closed, code ' + code + ', signal ' + signal);
-        bbbStream.destroy();
+        this.bbbStream.destroy();
     });
 
     ffmpeg.stdin.on('error', (e) => {
@@ -311,7 +296,6 @@ async streamVideoconference(){
     ffmpeg.stderr.on('data', (data) => {
         //this.log('FFmpeg video conf. STDERR:'+ data.toString());
     });
-
    
      return ffmpeg;
 }
@@ -331,23 +315,26 @@ streamPauseImage(){
         "-i", "anullsrc",
 
         '-vcodec', 'libx264',
-        '-x264-params', 'keyint=120:scenecut=0',
-        '-crf', '18',
+        '-x264-params', 'keyint=60:scenecut=-1',
+        '-crf', '23',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
-        "-b:v", "10M",
+        "-b:v", "4000k",
+        '-bf', '0',
+        '-maxrate', '4000k',
+        '-minrate', '2000k',
+        '-bufsize', '8000k',
         '-r', '30',
         '-g', '15',
-        
-        '-bf', '0',
-        '-coder', '1',
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
 
         '-acodec', 'aac',
         "-b:a", "160k",
         "-ar", "48000",
         "-ac", "2",
 
-        "-threads", "0",
+        "-threads", "4",
 
         "-f", "mpegts", "-"
     ]);
@@ -361,7 +348,7 @@ streamPauseImage(){
     });
 
     ffmpeg.stderr.on('data', (data) => {
-        this.log('FFmpeg pause image STDERR:'+ data.toString());
+        //this.log('FFmpeg pause image STDERR:'+ data.toString());
     });
 
     return ffmpeg;

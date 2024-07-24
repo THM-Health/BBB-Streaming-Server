@@ -27,6 +27,16 @@ app.get('/', (req, res) => {
 
 
 app.post('/:meetingId', async (req, res) => {
+
+    /**
+     * join link should have these attributes
+     * 
+     * userdata-bbb_hide_nav_bar=true
+     * userdata-bbb_hide_actions_bar=true
+     * userdata-bbb_show_public_chat_on_login=false
+     * userdata-bbb_show_participants_on_login=false
+     */
+
     const job = await streamQueue.add(
         'meeting',
         req.body,

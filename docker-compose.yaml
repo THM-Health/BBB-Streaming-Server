@@ -17,7 +17,7 @@ services:
     environment:
       - NODE_DEBUG=bull
     ports:
-      - "80:3000"
+      - "127.0.0.1:8900:3000"
     volumes:
         - ./src/controller:/home/streaming
     depends_on:
