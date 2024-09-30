@@ -117,6 +117,20 @@ export class BBBLiveStream{
         await this.page.setViewport({width, height});
 
         await this.page.locator('[data-test="listenOnlyBtn"]').setTimeout(10000).click();
+
+        const bbbStreamOptions = {
+            audio: true,
+            video: true,
+            audioBitsPerSecond: 128000,
+            videoBitsPerSecond: 2500000,
+            frameSize: 30,
+            ignoreMutedMedia: true,
+            mimeType: 'video/webm;codecs=h264'
+        }
+
+        // @ts-ignore
+        this.bbbStream = await getStream(this.page, bbbStreamOptions);
+        
     }
 
     async startStream(){
@@ -148,9 +162,12 @@ export class BBBLiveStream{
 
                 this.videoConferenceStream.stdout.on("data", (videoData) => {
                     //this.log('Data from video conference stream: '+(this.showPauseImage ? 'paused' : 'sending'));
-                    if(!this.showPauseImage && this.rtmpStream)
+                     if(!this.showPauseImage && this.rtmpStream){
+                        this.log(videoData);
                         this.rtmpStream.stdin.write(videoData);
+                     }
                 });
+                
 
                 this.pauseImageStream.stdout.on("data", (videoData) => {
                     //this.log('Data from pause image stream: '+(!this.showPauseImage ? 'paused' : 'sending'));
@@ -195,7 +212,7 @@ export class BBBLiveStream{
 
    async streamToRtmp(){
     const ffmpeg = spawn('ffmpeg', [
-        "-fflags", "+genpts",
+        "-fflags", "+genpts+igndts+discardcorrupt",
 
         "-re",
 
@@ -209,6 +226,8 @@ export class BBBLiveStream{
         // If we're encoding H.264 in-browser, we can set the video codec to 'copy'
         // so that we don't waste any CPU and quality with unnecessary transcoding.
         '-c', 'copy',
+
+        '-fps_mode', '1',
 
         '-bsf:a', 'aac_adtstoasc',
 
@@ -232,17 +251,7 @@ export class BBBLiveStream{
      return ffmpeg;
 }
 
-async streamVideoconference(){
-    const bbbStreamOptions = {
-        audio: true,
-        video: true,
-        audioBitsPerSecond: 128000,
-        videoBitsPerSecond: 2500000,
-        frameSize: 30,
-        ignoreMutedMedia: true,
-        mimeType: 'video/webm;codecs=h264'
-    }
-
+streamVideoconference(){
     const ffmpeg = spawn('ffmpeg', [
         "-y", "-nostats",
         "-thread_queue_size", "4096",
@@ -251,17 +260,16 @@ async streamVideoconference(){
 
         
         '-vcodec', 'libx264',
-        '-x264-params', 'keyint=60:scenecut=-1',
+        '-x264-params', 'keyint=30:scenecut=-1',
         '-crf', '23',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
         "-b:v", "4000k",
         '-bf', '0',
         '-maxrate', '4000k',
-        '-minrate', '2000k',
         '-bufsize', '8000k',
         '-r', '30',
-        '-g', '15',
+        '-g', '1',
         "-preset", "ultrafast",
         "-tune", "zerolatency",
 
@@ -275,18 +283,9 @@ async streamVideoconference(){
         "-f", "mpegts", "-"
     ]);
 
-    if(this.page){
-        // @ts-ignore
-        this.bbbStream = await getStream(this.page, bbbStreamOptions);
-        this.bbbStream.pipe(ffmpeg.stdin);
-    }
-    else{
-        throw new Error('Page not initialized');
-    }
-
     ffmpeg.on('close', (code, signal) => {
         this.log('FFmpeg video conf. child process closed, code ' + code + ', signal ' + signal);
-        this.bbbStream.destroy();
+    
     });
 
     ffmpeg.stdin.on('error', (e) => {
@@ -296,8 +295,10 @@ async streamVideoconference(){
     ffmpeg.stderr.on('data', (data) => {
         //this.log('FFmpeg video conf. STDERR:'+ data.toString());
     });
+
+    this.bbbStream.pipe(ffmpeg.stdin);
    
-     return ffmpeg;
+    return ffmpeg;
 }
 
 streamPauseImage(){
@@ -315,7 +316,7 @@ streamPauseImage(){
         "-i", "anullsrc",
 
         '-vcodec', 'libx264',
-        '-x264-params', 'keyint=60:scenecut=-1',
+        '-x264-params', 'keyint=30:scenecut=-1',
         '-crf', '23',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
@@ -325,7 +326,7 @@ streamPauseImage(){
         '-minrate', '2000k',
         '-bufsize', '8000k',
         '-r', '30',
-        '-g', '15',
+        '-g', '1',
         "-preset", "ultrafast",
         "-tune", "zerolatency",
 
