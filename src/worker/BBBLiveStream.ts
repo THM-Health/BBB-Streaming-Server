@@ -1,4 +1,5 @@
-import { launch, getStream } from "puppeteer-stream";
+import { launch, getStream } from "./PuppeteerStream";
+//import { launch, getStream } from "puppeteer-stream";
 import {ChildProcessWithoutNullStreams, spawn} from "node:child_process";
 import Redis from "ioredis";
 import fs from 'fs';
@@ -32,7 +33,7 @@ export class BBBLiveStream{
     
     bbbStream: any;
 
-    constructor(job: SandboxedJob){
+    constructor(job: any){
         this.job = job;
         this.joinUrl = job.data.joinUrl;
         this.pauseImageUrl = job.data.pauseImageUrl;
@@ -98,6 +99,7 @@ export class BBBLiveStream{
         const options = {
             executablePath: "/usr/bin/google-chrome",
             defaultViewport: { width, height },
+            dumpio: true,
             args: [
                 '--no-sandbox',
                 '--start-fullscreen',
@@ -124,13 +126,32 @@ export class BBBLiveStream{
             audioBitsPerSecond: 128000,
             videoBitsPerSecond: 2500000,
             frameSize: 30,
-            ignoreMutedMedia: true,
             mimeType: 'video/webm;codecs=h264'
         }
 
         // @ts-ignore
         this.bbbStream = await getStream(this.page, bbbStreamOptions);
+
+        setInterval(() => this.toggleVideo(), 5000);
         
+
+        
+    }
+
+    toggleVideo() {
+        if(!this.page)
+            return;
+        this.page.evaluate(() => {
+            if(document.getElementById('block-overlay')){
+                document.getElementById('block-overlay').remove();
+            }
+            else{
+                const g = document.createElement('div');
+                g.setAttribute("id", "block-overlay");
+                g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("https://marketplace.canva.com/EAExh819qUA/1/0/1600w/canva-schwarz-und-blau-modern-action-gaming-livestream-twitch-bildschirm-Vv7YJNIL2Jk.jpg"); background-size: cover; background-position: center; z-index: 100000');
+                document.body.appendChild(g);   
+            }
+        });
     }
 
     async startStream(){
@@ -163,7 +184,7 @@ export class BBBLiveStream{
                 this.videoConferenceStream.stdout.on("data", (videoData) => {
                     //this.log('Data from video conference stream: '+(this.showPauseImage ? 'paused' : 'sending'));
                      if(!this.showPauseImage && this.rtmpStream){
-                        this.log(videoData);
+                        //this.log(videoData);
                         this.rtmpStream.stdin.write(videoData);
                      }
                 });
@@ -218,8 +239,8 @@ export class BBBLiveStream{
 
         "-f", "mpegts",
 
-        //"-y", "-nostats",
-        //"-thread_queue_size", "4096",
+        "-y", "-nostats",
+        "-thread_queue_size", "4096",
 
         '-i', '-',
 
@@ -257,7 +278,6 @@ streamVideoconference(){
         "-thread_queue_size", "4096",
 
         '-i', '-',
-
         
         '-vcodec', 'libx264',
         '-x264-params', 'keyint=30:scenecut=-1',
