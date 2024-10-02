@@ -183,9 +183,9 @@ export class BBBLiveStream{
 
                 this.bbbStream.stream.pipe(this.rtmpStream.stdin);
 
-                this.bbbStream.extensionLogStream.on('console', (message: any) => {
-                    extensionLogStream.write(message.text());
-                });
+                //this.bbbStream.extensionLogStream.on('console', (message: any) => {
+                //    extensionLogStream.write(message.text());
+                //});
 
 
             } catch (error) {
