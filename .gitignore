@@ -4,3 +4,4 @@
 .local
 .npm
 node_modules
+.bash_history

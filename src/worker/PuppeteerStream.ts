@@ -7,12 +7,12 @@ import {
 	BrowserConnectOptions,
 } from "puppeteer-core";
 import * as path from "path";
-import { Transform } from "stream";
+import { PassThrough } from "stream";
 import WebSocket, { WebSocketServer } from "ws";
 import { IncomingMessage } from "http";
+import { BrowserMimeType } from './extension/options';
 
 const extensionId = "jjndjgheafjngoipoacpjgeicjeomjli";
-let currentIndex = 0;
 type StreamLaunchOptions = LaunchOptions &
 	BrowserLaunchArgumentOptions &
 	BrowserConnectOptions & {
@@ -137,7 +137,6 @@ export async function launch(
 		}
 		const extension = await getExtensionPage(browser);
 		await extension.evaluate(async () => {
-			// @ts-expect-error
 			return chrome.tabs.query({});
 		});
 		if (opts.closeDelay) {
@@ -148,26 +147,6 @@ export async function launch(
 
 	return browser;
 }
-
-export type BrowserMimeType =
-	| "video/webm"
-	| "video/webm;codecs=vp8"
-	| "video/webm;codecs=vp9"
-	| "video/webm;codecs=vp8.0"
-	| "video/webm;codecs=vp9.0"
-	| "video/webm;codecs=vp8,opus"
-	| "video/webm;codecs=vp8,pcm"
-	| "video/WEBM;codecs=VP8,OPUS"
-	| "video/webm;codecs=vp9,opus"
-	| "video/webm;codecs=vp8,vp9,opus"
-	| "audio/webm"
-	| "audio/webm;codecs=opus"
-	| "audio/webm;codecs=pcm";
-
-export type Constraints = {
-	mandatory?: MediaTrackConstraints;
-	optional?: MediaTrackConstraints;
-};
 
 interface IPuppeteerStreamOpts {
 	onDestroy: () => Promise<void>;
@@ -184,7 +163,6 @@ interface TabQueryOptions {
 	discarded?: boolean;
 	groupId?: number;
 	highlighted?: boolean;
-	index?: number;
 	lastFocusedWindow?: boolean;
 	muted?: boolean;
 	pinned?: boolean;
@@ -202,8 +180,8 @@ type WindowType = "normal" | "popup" | "panel" | "app" | "devtools";
 export interface getStreamOptions {
 	audio: boolean;
 	video: boolean;
-	videoConstraints?: Constraints;
-	audioConstraints?: Constraints;
+	videoConstraints?: chrome.tabCapture.MediaStreamConstraint;
+	audioConstraints?: chrome.tabCapture.MediaStreamConstraint;
 	mimeType?: BrowserMimeType;
 	audioBitsPerSecond?: number;
 	videoBitsPerSecond?: number;
@@ -267,8 +245,11 @@ export async function getStream(page: Page, opts: getStreamOptions) {
 
 	const extension = await getExtensionPage(page.browser());
 
-	const highWaterMarkMB = opts.streamConfig?.highWaterMarkMB || 8;
-	const index = currentIndex++;
+	const extensionLogStream = new PassThrough();
+
+	extension.on('console', (message: any) => {
+		extensionLogStream.write(message.text());
+	});
 
 	await lock();
 
@@ -286,22 +267,17 @@ export async function getStream(page: Page, opts: getStreamOptions) {
 	unlock();
 	if (!tab) throw new Error("Cannot find tab, try providing your own tabQuery to getStream options");
 
-	const stream = new Transform({
-		highWaterMark: 1024 * 1024 * highWaterMarkMB,
-		transform(chunk, encoding, callback) {
-			callback(null, chunk);
-		},
-	});
+	const stream = new PassThrough();
+	
 
 	function onConnection(ws: WebSocket, req: IncomingMessage) {
 		const url = new URL(`http://localhost:${port}${req.url}`);
-		if (url.searchParams.get("index") != index.toString()) return;
 
 		async function close() {
 			if (!stream.readableEnded && !stream.writableEnded) stream.end();
 			if (!extension.isClosed() && extension.browser().isConnected()) {
 				// @ts-ignore
-				extension.evaluate((index) => STOP_RECORDING(index), index);
+				extension.evaluate(() => STOP_RECORDING());
 			}
 
 			if (ws.readyState != WebSocket.CLOSED) {
@@ -330,10 +306,37 @@ export async function getStream(page: Page, opts: getStreamOptions) {
 	await extension.evaluate(
 		// @ts-ignore
 		(settings) => START_RECORDING(settings),
-		{ ...opts, index, tabId: tab.id }
+		{ ...opts, tabId: tab.id }
 	);
 
-	return stream;
+	const mute = () => {
+		if (!extension.isClosed() && extension.browser().isConnected()) {
+			// @ts-ignore
+			extension.evaluate(() => MUTE());
+		}
+	};
+
+	const unmute = () => {
+		if (!extension.isClosed() && extension.browser().isConnected()) {
+			// @ts-ignore
+			extension.evaluate(() => UN_MUTE());
+		}
+	};
+
+	const stop = () => {
+		if (!extension.isClosed() && extension.browser().isConnected()) {
+			// @ts-ignore
+			extension.evaluate(() => STOP_RECORDING());
+		}
+	};
+
+	return {
+		stream,
+		mute,
+		unmute,
+		stop,
+		extensionLogStream
+	};
 }
 
 async function assertExtensionLoaded(ext: Page, opt: getStreamOptions["retry"]) {

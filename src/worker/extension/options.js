@@ -1,121 +1,95 @@
-const recorders = {};
-
-async function START_RECORDING({
-	index,
-	video,
-	audio,
-	frameSize,
-	audioBitsPerSecond,
-	videoBitsPerSecond,
-	bitsPerSecond,
-	mimeType,
-	videoConstraints,
-	delay,
-	audioConstraints,
-	tabId,
-}) {
-	console.log(
-		"[PUPPETEER_STREAM] START_RECORDING",
-		JSON.stringify({
-			index,
-			video,
-			audio,
-			frameSize,
-			audioBitsPerSecond,
-			videoBitsPerSecond,
-			bitsPerSecond,
-			mimeType,
-			videoConstraints,
-			audioConstraints,
-			tabId,
-		})
-	);
-
-	const client = new WebSocket(`ws://localhost:${window.location.hash.substring(1)}/?index=${index}`, []);
-
-	await new Promise((resolve) => {
-		if (client.readyState === WebSocket.OPEN) resolve();
-		client.addEventListener("open", resolve);
-	});
-
-	const streamId = await new Promise((resolve, reject) => {
-		chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (stream) => {
-			if (stream) resolve(stream);
-			else reject();
-		});
-	});
-
-	const stream = await navigator.mediaDevices.getUserMedia({
-		video: video && {
-			...video,
-			mandatory: {
-				...video?.mandatory,
-				chromeMediaSource: "tab",
-				chromeMediaSourceId: streamId,
-			},
-		},
-		audio: audio && {
-			...audio,
-			mandatory: {
-				...audio?.mandatory,
-				chromeMediaSource: "tab",
-				chromeMediaSourceId: streamId,
-			},
-		},
-	});
-
-	// somtimes needed to sync audio and video
-	if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-
-	const recorder = new MediaRecorder(stream, {
-		ignoreMutedMedia: true,
-		audioBitsPerSecond,
-		videoBitsPerSecond,
-		bitsPerSecond,
-		mimeType,
-	});
-
-	recorder.ondataavailable = async (e) => {
-		if (!e.data.size) return;
-
-		const buffer = await e.data.arrayBuffer();
-
-		client.send(buffer);
-	};
-	recorders[index] = recorder;
-	// TODO: recorder onerror
-
-	recorder.onerror = () => recorder.stop();
-
-	recorder.onstop = function () {
-		try {
-			const tracks = stream.getTracks();
-
-			tracks.forEach(function (track) {
-				track.stop();
-			});
-
-			if (client.readyState === WebSocket.OPEN) client.close();
-		} catch (error) {}
-	};
-	stream.oninactive = () => {
-		try {
-			recorder.stop();
-		} catch (error) {}
-	};
-
-	recorder.start(frameSize);
-
-    setInterval(function() {
-        stream.getAudioTracks()[0].enabled = !stream.getAudioTracks()[0].enabled;
-      }, 5000);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var recorder;
+var stream;
+async function START_RECORDING(opts) {
+    console.log("[PUPPETEER_STREAM] START_RECORDING", JSON.stringify({
+        video: opts.video,
+        audio: opts.audio,
+        frameSize: opts.frameSize,
+        audioBitsPerSecond: opts.audioBitsPerSecond,
+        videoBitsPerSecond: opts.videoBitsPerSecond,
+        bitsPerSecond: opts.bitsPerSecond,
+        mimeType: opts.mimeType,
+        videoConstraints: opts.videoConstraints,
+        audioConstraints: opts.audioConstraints,
+        tabId: opts.tabId,
+    }));
+    const client = new WebSocket(`ws://localhost:${window.location.hash.substring(1)}`, []);
+    await new Promise((resolve) => {
+        if (client.readyState === WebSocket.OPEN)
+            resolve();
+        client.addEventListener("open", () => resolve());
+    });
+    stream = await new Promise((resolve, reject) => {
+        chrome.tabCapture.capture({
+            audio: opts.audio,
+            video: opts.video,
+            audioConstraints: opts.audioConstraints,
+            videoConstraints: opts.videoConstraints,
+        }, (stream) => {
+            var _a, _b;
+            if (chrome.runtime.lastError || !stream) {
+                console.error((_a = chrome.runtime.lastError) === null || _a === void 0 ? void 0 : _a.message);
+                reject((_b = chrome.runtime.lastError) === null || _b === void 0 ? void 0 : _b.message);
+            }
+            else {
+                resolve(stream);
+            }
+        });
+    });
+    // somtimes needed to sync audio and video
+    if (opts.delay)
+        await new Promise((resolve) => setTimeout(resolve, opts.delay));
+    recorder = new MediaRecorder(stream, {
+        audioBitsPerSecond: opts.audioBitsPerSecond,
+        videoBitsPerSecond: opts.videoBitsPerSecond,
+        bitsPerSecond: opts.bitsPerSecond,
+        mimeType: opts.mimeType,
+    });
+    recorder.ondataavailable = async (e) => {
+        if (!e.data.size)
+            return;
+        const buffer = await e.data.arrayBuffer();
+        client.send(buffer);
+    };
+    // TODO: recorder onerror
+    recorder.onerror = () => recorder.stop();
+    recorder.onstop = function () {
+        try {
+            const tracks = stream.getTracks();
+            tracks.forEach(function (track) {
+                track.stop();
+            });
+            if (client.readyState === WebSocket.OPEN)
+                client.close();
+        }
+        catch (error) { }
+    };
+    stream.onremovetrack = () => {
+        try {
+            recorder.stop();
+        }
+        catch (error) { }
+    };
+    recorder.start(opts.frameSize);
 }
-
-
-function STOP_RECORDING(index) {
-	console.log("[PUPPETEER_STREAM] STOP_RECORDING", index);
-	if (!recorders[index]) return;
-	if (recorders[index].state === "inactive") return;
-
-	recorders[index].stop();
+function MUTE() {
+    if (stream) {
+        stream.getAudioTracks()[0].enabled = false;
+    }
 }
+function UN_MUTE() {
+    if (stream) {
+        stream.getAudioTracks()[0].enabled = true;
+    }
+}
+function STOP_RECORDING() {
+    console.log("[PUPPETEER_STREAM] STOP_RECORDING");
+    if (!recorder)
+        return;
+    if (recorder.state === "inactive")
+        return;
+    recorder.stop();
+}
+//# sourceMappingURL=options.js.map

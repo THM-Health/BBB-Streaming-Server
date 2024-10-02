@@ -8,8 +8,9 @@
     "esModuleInterop": true,
     "strictNullChecks": false,
     "sourceMap": true,
+    "types": ["node", "chrome"]
   },
-  "include": ["*.ts"],
+  "include": ["./", "./extension"],
   "exclude": [
     "node_modules"
   ]

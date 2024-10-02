@@ -1,0 +1,6 @@
+.cache
+.config
+.local
+.npm
+.pki
+node_modules

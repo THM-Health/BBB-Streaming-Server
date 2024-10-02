@@ -1,10 +1,9 @@
-import { launch, getStream } from "./PuppeteerStream";
-//import { launch, getStream } from "puppeteer-stream";
+import { launch, getStream, getStreamOptions } from "./PuppeteerStream";
 import {ChildProcessWithoutNullStreams, spawn} from "node:child_process";
 import Redis from "ioredis";
 import fs from 'fs';
 import client from 'https';
-import { Job, SandboxedJob } from 'bullmq';
+import { SandboxedJob } from 'bullmq';
 import { Browser, Page } from "puppeteer-core";
 
 const redisHost = process.env.REDIS_HOST || 'redis';
@@ -80,12 +79,12 @@ export class BBBLiveStream{
 
             if (data.action === "pause") {
                 this.job.updateProgress({status: "paused"});
-                this.showPauseImage = true;
+                this.pause();
             }
 
             if (data.action === "resume") {
                 this.job.updateProgress({status: "running"});
-                this.showPauseImage = false;
+                this.resume();
             }
 
             if (data.action === "stop") {
@@ -120,7 +119,7 @@ export class BBBLiveStream{
 
         await this.page.locator('[data-test="listenOnlyBtn"]').setTimeout(10000).click();
 
-        const bbbStreamOptions = {
+        const bbbStreamOptions: getStreamOptions = {
             audio: true,
             video: true,
             audioBitsPerSecond: 128000,
@@ -129,29 +128,32 @@ export class BBBLiveStream{
             mimeType: 'video/webm;codecs=h264'
         }
 
-        // @ts-ignore
         this.bbbStream = await getStream(this.page, bbbStreamOptions);
-
-        setInterval(() => this.toggleVideo(), 5000);
-        
-
-        
     }
 
-    toggleVideo() {
-        if(!this.page)
-            return;
+    pause(){
         this.page.evaluate(() => {
-            if(document.getElementById('block-overlay')){
-                document.getElementById('block-overlay').remove();
-            }
-            else{
+            // If no overlay exists, add new overlay
+            if(!document.getElementById('block-overlay')){
                 const g = document.createElement('div');
                 g.setAttribute("id", "block-overlay");
                 g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("https://marketplace.canva.com/EAExh819qUA/1/0/1600w/canva-schwarz-und-blau-modern-action-gaming-livestream-twitch-bildschirm-Vv7YJNIL2Jk.jpg"); background-size: cover; background-position: center; z-index: 100000');
                 document.body.appendChild(g);   
             }
-        });
+        }); 
+
+        this.bbbStream.mute();
+    }
+
+    resume(){
+        this.page.evaluate(() => {
+            // Remove overlay if it exists
+            if(document.getElementById('block-overlay')){
+                document.getElementById('block-overlay').remove();
+            }
+        }); 
+
+        this.bbbStream.unmute();
     }
 
     async startStream(){
@@ -161,7 +163,7 @@ export class BBBLiveStream{
 
         return new Promise<void>(async (resolve) => {
 
-            this.streamEnded = resolve;
+            this.streamEnded = () => resolve();
 
             await this.downloadPauseImage();
 
@@ -175,26 +177,16 @@ export class BBBLiveStream{
                 await this.job.updateProgress({status: "running"});
                 this.log('Started streaming');
     
-                this.rtmpStream = await this.streamToRtmp();
-                this.videoConferenceStream = await this.streamVideoconference()
-                this.pauseImageStream = this.streamPauseImage();
+                this.rtmpStream = this.streamToRtmp();
 
                 await this.job.updateProgress({status: "running"});
 
-                this.videoConferenceStream.stdout.on("data", (videoData) => {
-                    //this.log('Data from video conference stream: '+(this.showPauseImage ? 'paused' : 'sending'));
-                     if(!this.showPauseImage && this.rtmpStream){
-                        //this.log(videoData);
-                        this.rtmpStream.stdin.write(videoData);
-                     }
-                });
-                
+                this.bbbStream.stream.pipe(this.rtmpStream.stdin);
 
-                this.pauseImageStream.stdout.on("data", (videoData) => {
-                    //this.log('Data from pause image stream: '+(!this.showPauseImage ? 'paused' : 'sending'));
-                     if(this.showPauseImage && this.rtmpStream)
-                        this.rtmpStream.stdin.write(videoData);
+                this.bbbStream.extensionLogStream.on('console', (message: any) => {
+                    extensionLogStream.write(message.text());
                 });
+
 
             } catch (error) {
                 this.log('Error during streaming: '+JSON.stringify(error));
@@ -215,44 +207,61 @@ export class BBBLiveStream{
    
         await this.job.updateProgress({status: "stopped"});
 
-        if(this.browser)
+    
+        this.log("Stopping stream");
+        this.bbbStream.stop();
+        this.bbbStream.stream.on("close", async() => {
+            this.log("Closing browser");
             await this.browser.close();
-       
-        if(this.videoConferenceStream)
-            this.videoConferenceStream.kill('SIGKILL');
 
-        if(this.pauseImageStream)
-            this.pauseImageStream.kill('SIGKILL');
-        
-        if(this.rtmpStream)
-            this.rtmpStream.kill('SIGKILL');
+            this.log("Waiting for ffmpeg to close");
+        });
+
+        this.rtmpStream.on('close', (code, signal) => {
+            this.log('Ending FFmpeg rtmp output stream child process closed, code ' + code + ', signal ' + signal);
+        });
+    
+
        
-        if(this.streamEnded)
-            this.streamEnded();
+        //if(this.streamEnded)
+        //    this.streamEnded();
    }
 
-   async streamToRtmp(){
+   streamToRtmp(){
     const ffmpeg = spawn('ffmpeg', [
-        "-fflags", "+genpts+igndts+discardcorrupt",
-
-        "-re",
-
-        "-f", "mpegts",
-
         "-y", "-nostats",
         "-thread_queue_size", "4096",
 
         '-i', '-',
+        
+        //'-vcodec', 'copy',
+        
+        "-b:v", "4000k",
 
-        // If we're encoding H.264 in-browser, we can set the video codec to 'copy'
-        // so that we don't waste any CPU and quality with unnecessary transcoding.
-        '-c', 'copy',
+        "-crf", "23", 
+        '-bf', '2',
+   
+        '-vcodec', 'libx264',
+        '-x264-params', 'keyint=30:scenecut=-1',
+        '-profile:v', 'high',
+        '-pix_fmt', "yuv420p",
 
-        '-fps_mode', '1',
+        '-bufsize', '8000k',
+        '-r', '30',
+        '-g', '15',
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
+ 
 
-        '-bsf:a', 'aac_adtstoasc',
+        '-acodec', 'aac',
+        "-b:a", "160k",
+        "-ar", "48000",
+        "-ac", "2",
+
+        "-threads", "0",
 
         "-f", "flv",
+        "-flvflags", "no_duration_filesize",
         this.rtmpUrl
     ]);
 
@@ -271,110 +280,6 @@ export class BBBLiveStream{
    
      return ffmpeg;
 }
-
-streamVideoconference(){
-    const ffmpeg = spawn('ffmpeg', [
-        "-y", "-nostats",
-        "-thread_queue_size", "4096",
-
-        '-i', '-',
-        
-        '-vcodec', 'libx264',
-        '-x264-params', 'keyint=30:scenecut=-1',
-        '-crf', '23',
-        '-profile:v', 'high',
-        '-pix_fmt', "yuv420p",
-        "-b:v", "4000k",
-        '-bf', '0',
-        '-maxrate', '4000k',
-        '-bufsize', '8000k',
-        '-r', '30',
-        '-g', '1',
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-
-        '-acodec', 'aac',
-        "-b:a", "160k",
-        "-ar", "48000",
-        "-ac", "2",
-
-        "-threads", "4",
-
-        "-f", "mpegts", "-"
-    ]);
-
-    ffmpeg.on('close', (code, signal) => {
-        this.log('FFmpeg video conf. child process closed, code ' + code + ', signal ' + signal);
-    
-    });
-
-    ffmpeg.stdin.on('error', (e) => {
-        this.log('FFmpeg video conf. STDIN Error'+ JSON.stringify(e));
-    });
-
-    ffmpeg.stderr.on('data', (data) => {
-        //this.log('FFmpeg video conf. STDERR:'+ data.toString());
-    });
-
-    this.bbbStream.pipe(ffmpeg.stdin);
-   
-    return ffmpeg;
-}
-
-streamPauseImage(){
-    const ffmpeg = spawn('ffmpeg', [
-        "-y", "-nostats",
-
-        "-thread_queue_size", "4096",
-
-        "-f", "image2",
-        "-loop", "1",
-        "-i", this.pauseImageFile,
-        "-re",
-
-        "-f", "lavfi",
-        "-i", "anullsrc",
-
-        '-vcodec', 'libx264',
-        '-x264-params', 'keyint=30:scenecut=-1',
-        '-crf', '23',
-        '-profile:v', 'high',
-        '-pix_fmt', "yuv420p",
-        "-b:v", "4000k",
-        '-bf', '0',
-        '-maxrate', '4000k',
-        '-minrate', '2000k',
-        '-bufsize', '8000k',
-        '-r', '30',
-        '-g', '1',
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-
-        '-acodec', 'aac',
-        "-b:a", "160k",
-        "-ar", "48000",
-        "-ac", "2",
-
-        "-threads", "4",
-
-        "-f", "mpegts", "-"
-    ]);
-
-    ffmpeg.on('close', (code, signal) => {
-        this.log('FFmpeg pause image child process closed, code ' + code + ', signal ' + signal);
-    });
-
-    ffmpeg.stdin.on('error', (e) => {
-        this.log('FFmpeg pause image STDIN Error'+ JSON.stringify(e));
-    });
-
-    ffmpeg.stderr.on('data', (data) => {
-        //this.log('FFmpeg pause image STDERR:'+ data.toString());
-    });
-
-    return ffmpeg;
-}
-
 
 }
 

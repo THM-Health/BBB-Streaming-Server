@@ -1,0 +1,7 @@
+{
+    "files.exclude": {
+        // Hide all .js files when have a .ts file
+       "**/*.js": {"when": "$(basename).ts"},
+       "**/*.js.map": true,
+    }
+}
