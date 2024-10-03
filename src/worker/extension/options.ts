@@ -124,7 +124,7 @@ function MUTE() {
 	}
 }
 
-function UN_MUTE() {
+function UNMUTE() {
 	if(stream){
 		stream.getAudioTracks()[0].enabled = true;
 	}

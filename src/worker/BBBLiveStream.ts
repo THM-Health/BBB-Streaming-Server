@@ -88,7 +88,6 @@ export class BBBLiveStream{
             }
 
             if (data.action === "stop") {
-                this.job.updateProgress({status: "stopping"});
                 this.stopStream();
             }
         });
@@ -98,7 +97,7 @@ export class BBBLiveStream{
         const options = {
             executablePath: "/usr/bin/google-chrome",
             defaultViewport: { width, height },
-            dumpio: true,
+            //dumpio: true,
             args: [
                 '--no-sandbox',
                 '--start-fullscreen',
@@ -128,7 +127,30 @@ export class BBBLiveStream{
             mimeType: 'video/webm;codecs=h264'
         }
 
-        this.bbbStream = await getStream(this.page, bbbStreamOptions);
+        this.page.on('console', (message: any) => {
+            consoleLog(message.text());
+        });
+
+        const consoleLog = (msg: string) => {
+            this.log("CONSOLE: "+msg);
+        };
+
+        this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
+
+        this.waitForMeetingEnded();
+    }
+
+    async waitForMeetingEnded(){
+        if(!this.page)
+            return;
+        try{
+            await this.page.waitForSelector('[data-test="meetingEndedModal"]');
+            this.log("Meeting ended or user removed");
+            this.stopStream();
+        }
+        catch(error){
+            this.waitForMeetingEnded();
+        }
     }
 
     pause(){
@@ -161,9 +183,9 @@ export class BBBLiveStream{
 
         this.handleRedisMessages();
 
-        return new Promise<void>(async (resolve) => {
+        return new Promise<string>(async (resolve) => {
 
-            this.streamEnded = () => resolve();
+            this.streamEnded = () => resolve("ended");
 
             await this.downloadPauseImage();
 
@@ -183,10 +205,6 @@ export class BBBLiveStream{
 
                 this.bbbStream.stream.pipe(this.rtmpStream.stdin);
 
-                //this.bbbStream.extensionLogStream.on('console', (message: any) => {
-                //    extensionLogStream.write(message.text());
-                //});
-
 
             } catch (error) {
                 this.log('Error during streaming: '+JSON.stringify(error));
@@ -202,15 +220,14 @@ export class BBBLiveStream{
     }
 
     async stopStream(){
-
         this.log('Stopping streaming');
+        this.job.updateProgress({status: "stopping"});
    
-        await this.job.updateProgress({status: "stopped"});
+        this.log("Close page");
+        this.page.close();
 
-    
-        this.log("Stopping stream");
-        this.bbbStream.stop();
         this.bbbStream.stream.on("close", async() => {
+            this.log("Stream closed");
             this.log("Closing browser");
             await this.browser.close();
 
@@ -218,13 +235,15 @@ export class BBBLiveStream{
         });
 
         this.rtmpStream.on('close', (code, signal) => {
-            this.log('Ending FFmpeg rtmp output stream child process closed, code ' + code + ', signal ' + signal);
+            this.log('FFmpeg rtmp output stream child process closed, code ' + code + ', signal ' + signal);
+            
+            if(this.streamEnded){
+               this.log("Stream end callback");
+               setTimeout(() => {
+                this.streamEnded();
+              }, 5000);
+            }
         });
-    
-
-       
-        //if(this.streamEnded)
-        //    this.streamEnded();
    }
 
    streamToRtmp(){
@@ -266,7 +285,11 @@ export class BBBLiveStream{
     ]);
 
     ffmpeg.on('close', (code, signal) => {
-        this.log('FFmpeg rtmp output stream child process closed, code ' + code + ', signal ' + signal);
+        // @ts-ignore
+        if(this.job.progress.status !== "stopping"){
+            this.log('ERROR Ending FFmpeg rtmp output stream child process closed, code ' + code + ', signal ' + signal);
+            throw new Error('FFmpeg closed, code ' + code + ', signal ' + signal);
+        }
     });
 
     ffmpeg.stdin.on('error', (e) => {

@@ -234,7 +234,7 @@ function unlock() {
 	else mutex = false;
 }
 
-export async function getStream(page: Page, opts: getStreamOptions) {
+export async function getStream(page: Page, opts: getStreamOptions, consoleLog: (msg: string) => void) {
 	if (!opts.audio && !opts.video) throw new Error("At least audio or video must be true");
 	if (!opts.mimeType) {
 		if (opts.video) opts.mimeType = "video/webm";
@@ -245,10 +245,8 @@ export async function getStream(page: Page, opts: getStreamOptions) {
 
 	const extension = await getExtensionPage(page.browser());
 
-	const extensionLogStream = new PassThrough();
-
 	extension.on('console', (message: any) => {
-		extensionLogStream.write(message.text());
+		consoleLog(message.text());
 	});
 
 	await lock();
@@ -319,23 +317,14 @@ export async function getStream(page: Page, opts: getStreamOptions) {
 	const unmute = () => {
 		if (!extension.isClosed() && extension.browser().isConnected()) {
 			// @ts-ignore
-			extension.evaluate(() => UN_MUTE());
-		}
-	};
-
-	const stop = () => {
-		if (!extension.isClosed() && extension.browser().isConnected()) {
-			// @ts-ignore
-			extension.evaluate(() => STOP_RECORDING());
+			extension.evaluate(() => UNMUTE());
 		}
 	};
 
 	return {
 		stream,
 		mute,
-		unmute,
-		stop,
-		extensionLogStream
+		unmute
 	};
 }
 

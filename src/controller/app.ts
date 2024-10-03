@@ -35,6 +35,7 @@ app.post('/:meetingId', async (req, res) => {
      * userdata-bbb_hide_actions_bar=true
      * userdata-bbb_show_public_chat_on_login=false
      * userdata-bbb_show_participants_on_login=false
+     * userdata-bbb_ask_for_feedback_on_logout=true
      */
 
     const job = await streamQueue.add(
