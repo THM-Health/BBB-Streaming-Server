@@ -17,7 +17,6 @@ export class BBBLiveStream{
     job: SandboxedJob;
     joinUrl: string;
     pauseImageUrl: string;
-    pauseImageFile: string;
     rtmpUrl: string;
 
     rtmpStream: ChildProcessWithoutNullStreams | undefined;
@@ -36,7 +35,6 @@ export class BBBLiveStream{
         this.job = job;
         this.joinUrl = job.data.joinUrl;
         this.pauseImageUrl = job.data.pauseImageUrl;
-        this.pauseImageFile = '/tmp/pause-image-'+job.id+'.jpg';
         this.rtmpUrl = job.data.rtmpUrl;
 
         this.redis = new Redis({
@@ -48,17 +46,6 @@ export class BBBLiveStream{
 
     log(message: string){
         this.job.log(message);
-    }
-
-    async downloadPauseImage(){
-        this.log('Downloading pause image from '+this.pauseImageUrl+' to '+this.pauseImageFile);
-
-        await downloadImage(this.pauseImageUrl, this.pauseImageFile).then((filepath) => {
-            this.log('Pause image downloaded to '+filepath);
-        }).catch((error) => {
-            this.log('Failed to download pause image: '+error);
-            throw new Error('Failed to download pause image');
-        });
     }
 
     handleRedisMessages() {
@@ -159,7 +146,7 @@ export class BBBLiveStream{
             if(!document.getElementById('block-overlay')){
                 const g = document.createElement('div');
                 g.setAttribute("id", "block-overlay");
-                g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("https://marketplace.canva.com/EAExh819qUA/1/0/1600w/canva-schwarz-und-blau-modern-action-gaming-livestream-twitch-bildschirm-Vv7YJNIL2Jk.jpg"); background-size: cover; background-position: center; z-index: 100000');
+                g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("'+this.pauseImageUrl+'"); background-size: cover; background-position: center; z-index: 100000');
                 document.body.appendChild(g);   
             }
         }); 
@@ -186,8 +173,6 @@ export class BBBLiveStream{
         return new Promise<string>(async (resolve) => {
 
             this.streamEnded = () => resolve("ended");
-
-            await this.downloadPauseImage();
 
             try {
                 // Start streaming
@@ -304,22 +289,4 @@ export class BBBLiveStream{
      return ffmpeg;
 }
 
-}
-
-
-function downloadImage(url: string, filepath: string) {
-    return new Promise((resolve, reject) => {
-        client.get(url, (res) => {
-            if (res.statusCode === 200) {
-                res.pipe(fs.createWriteStream(filepath))
-                    .on('error', reject)
-                    .once('close', () => resolve(filepath));
-            } else {
-                // Consume response data to free up memory
-                res.resume();
-                reject(new Error(`Request Failed With a Status Code: ${res.statusCode}`));
-
-            }
-        });
-    });
 }
