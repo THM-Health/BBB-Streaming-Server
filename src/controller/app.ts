@@ -46,6 +46,7 @@ app.post('/:meetingId', async (req, res) => {
             removeOnComplete: true
         }
     );
+    job.updateProgress({status: "queued"});
     res.json(job);
 });
 
@@ -61,7 +62,7 @@ app.get('/:meetingId', async (req, res) => {
     res.json({
         id: job.id,
         progress: job.progress,
-        logs: logs
+        //logs: logs
     });
 });
 

@@ -13,7 +13,7 @@ RUN apt-get update \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
         && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] https://dl-ssl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
     && apt-get update \
-    && apt-get install -y google-chrome-stable fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg \
+    && apt-get install -y google-chrome-stable fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,4 +31,5 @@ COPY --chown=streaming:streaming ../.. /home/streaming
 # Run npm install
 RUN npm install
 
-ENTRYPOINT ["npm", "run", "start"]
+ENTRYPOINT ["tini", "--"]
+CMD ["npm", "run", "start"]
