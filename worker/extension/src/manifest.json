@@ -1,0 +1,11 @@
+{
+	"name": "Video Capture",
+	"version": "0.1.0",
+	"key": "ackedhmjjinfocdcekpnbdocpmiffaac",
+	"manifest_version": 3,
+	"sockets": {
+		"tcp": { "connect": ["*"] }
+	},
+	"permissions": ["tabs", "tabCapture", "storage", "scripting", "sockets.udp", "sockets.tcp"],
+	"host_permissions": ["*://*/*", "<all_urls>", "https://*/*", "http://*/*"]
+}

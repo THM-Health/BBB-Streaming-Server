@@ -1,7 +1,12 @@
 {
     "files.exclude": {
         // Hide all .js files when have a .ts file
-       "**/*.js": {"when": "$(basename).ts"},
-       "**/*.js.map": true,
-    }
+       //"**/*.js": {"when": "$(basename).ts"},
+       //"**/*.js.map": true,
+    },
+    "deno.enable": true,
+    "deno.enablePaths": [
+        "worker/src",
+        "controller/src"
+    ],
 }

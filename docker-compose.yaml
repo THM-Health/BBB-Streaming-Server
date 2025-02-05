@@ -1,11 +1,11 @@
 services:
   worker:
     build:
-      context: src/worker
+      context: worker
     environment:
       - NODE_DEBUG=bull
     volumes:
-      - ./src/worker:/home/streaming
+      - ./worker:/home/streaming
     depends_on:
       - redis
     deploy:
@@ -13,13 +13,13 @@ services:
       replicas: 1
   controller:
     build:
-      context: src/controller
+      context: controller
     environment:
       - NODE_DEBUG=bull
     ports:
       - "127.0.0.1:8900:3000"
     volumes:
-        - ./src/controller:/home/streaming
+        - ./controller:/home/streaming
     depends_on:
       - redis
   redis:

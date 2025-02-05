@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "devDependencies": {
+    "@types/chrome": "^0.0.273",
+    "@types/ws": "^8.5.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
