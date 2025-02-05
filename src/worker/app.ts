@@ -36,23 +36,44 @@ worker.on("failed", (job: Job | undefined, error: Error) => {
   sendStatusToWebhook(job, 'failed');
 });
 worker.on("progress", (job: Job, progress: number | object) => {
-  // @ts-ignore
-  console.log(`Job ${job.id} is ${progress.status}`);
-
+ 
   // @ts-ignore
   const status: string = progress.status;
+  // @ts-ignore
+  const fps: number = progress.fps;
+  // @ts-ignore
+  const bitrate: number = progress.bitrate;
 
-  sendStatusToWebhook(job, status);
+  console.log(`Job ${job.id} is ${status}`);
+
+  sendStatusToWebhook(job, status, fps, bitrate);
 });
 
-function sendStatusToWebhook(job: Job, status: string){
-  try{
-    axios.post(job.data.webhookUrl, {
+function sendStatusToWebhook(job: Job, status: string = null, fps: number = null, bitrate: number = null){
+  if(!job.data.webhookUrl)
+    return;
+
+    
+
+    const data = {
       job: job.id,
-      status
-    });
-  }
-  catch(exception) {
-    console.error(exception);
-  }
+      status,
+      fps,
+      bitrate
+    };
+
+    console.log(job.data.webhookUrl+" "+JSON.stringify(data));
+
+    //const webhookUrl = "https://httpdump.app/dumps/9e0407e3-2982-4bb0-88da-985be680ce7e";//job.data.webhookUrl;
+    const webhookUrl = job.data.webhookUrl;
+
+    axios.post(webhookUrl, data ).catch((error) => {
+      console.log(error);
+      if (error.response) {
+        console.error('Webhook for '+job.id+' status '+status+' failed with status code '+error.response.status);
+      }
+      else{
+        console.error('Webhook for '+job.id+' status '+status+' failed', error.code);
+      }
+  });
 }

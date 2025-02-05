@@ -1,8 +1,10 @@
 import express from 'express';
-import { query } from 'express-validator';
+import { Request, Response } from 'express';
 import Redis from 'ioredis';
 import {Queue} from "bullmq";
-import { v4 as uuidv4 } from 'uuid';
+import { checkSchema, validationResult, matchedData } from 'express-validator';
+import { createHash } from 'crypto';
+import { URL } from 'node:url';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -26,7 +28,24 @@ app.get('/', (req, res) => {
 });
 
 
-app.post('/:meetingId', async (req, res) => {
+const createSchema = {
+    joinUrl: {
+        notEmpty: true
+    },
+    pauseImageUrl: {
+        optional: true,
+    },
+    webhookUrl: {
+        optional: true,
+    },
+    rtmpUrl: {
+        notEmpty: true
+    }
+  
+};
+
+
+app.post('/', checkSchema(createSchema, ['body']), async (req: Request, res: Response) => {
 
     /**
      * join link should have these attributes
@@ -38,36 +57,120 @@ app.post('/:meetingId', async (req, res) => {
      * userdata-bbb_ask_for_feedback_on_logout=true
      */
 
+    const result = validationResult(req);
+    if (!result.isEmpty()) {
+        res.status(422).json({ errors: result.array() });
+        return;
+    }
+
+    const data = matchedData(req);
+
+    let joinUrl: URL;
+    try{
+        joinUrl = new URL(data.joinUrl);
+    }
+    catch(typeError){
+        res.status(422).json({
+            errors: [
+                {
+                    type: "field",
+                    msg: "Invalid url",
+                    path: "joinUrl",
+                    location: "body"
+                }
+            ]
+        });
+        return;
+    }
+
+    const host = joinUrl.host;
+    const params = joinUrl.searchParams;
+    const meetingId = params.get('meetingID');
+
+    if(meetingId == null){
+        res.status(422).json({
+            errors: [
+                {
+                    type: "field",
+                    msg: "Meeting ID not found in join url",
+                    path: "joinUrl",
+                    location: "body"
+                }
+            ]
+        });
+        return;
+    }
+
+    const jobId = createHash('sha256').update(meetingId+"@"+host).digest('hex');
+
+    const jobData = {
+        joinUrl: data.joinUrl,
+        pauseImageUrl: data.pauseImageUrl,
+        rtmpUrl: data.rtmpUrl,
+        webhookUrl: data.webhookUrl
+    };
+
+    //console.log('New job', JSON.stringify(jobData));
+
     const job = await streamQueue.add(
         'meeting',
-        req.body,
+        jobData,
         {
-            jobId: req.params.meetingId,
+            jobId: jobId,
             removeOnComplete: true
         }
     );
-    job.updateProgress({status: "queued"});
-    res.json(job);
+    job.updateProgress({status: "queued", fps: 0, bitrate: 0});
+    res.status(201).json({
+        id: job.id,
+        progress: job.progress,
+    });
 });
 
-app.get('/:meetingId', async (req, res) => {
-    const job = await streamQueue.getJob(req.params.meetingId);
-    const logs = await streamQueue.getJobLogs(req.params.meetingId);
+app.get('/:jobId', async (req, res) => {
+    const job = await streamQueue.getJob(req.params.jobId);
+    //const logs = await streamQueue.getJobLogs(req.params.jobId);
 
     if(job == null) {
         res.status(404).send('Job not found');
         return;
     }
 
-    res.json({
+    res.status(200).json({
         id: job.id,
         progress: job.progress,
-        //logs: logs
     });
 });
 
-app.post('/:meetingId/stop', async (req, res) => {
-    const job = await streamQueue.getJob(req.params.meetingId);
+app.post('/:jobId/stop', async (req, res) => {
+    const job = await streamQueue.getJob(req.params.jobId);
+
+    if(job == null) {
+        res.status(404).send('No stream running for this meeting');
+        return;
+    }
+
+    // @ts-ignore
+    if(job.progress?.status !== "running" && job.progress?.status !== "paused" ){
+        // @ts-ignore
+        res.status(400).json({
+            id: job.id,
+            progress: job.progress,
+        });
+        return;
+    }
+
+    job.updateProgress({status: "stopping", fps: 0, bitrate: 0});
+    await redis.publish("job-"+job.id, JSON.stringify({action: "stop"}));
+
+    res.status(202).json({
+        id: job.id,
+        progress: job.progress,
+    });
+});
+
+app.post('/:jobId/pause', async (req, res) => {
+    const job = await streamQueue.getJob(req.params.jobId);
 
     if(job == null) {
         res.status(404).send('No stream running for this meeting');
@@ -77,37 +180,25 @@ app.post('/:meetingId/stop', async (req, res) => {
     // @ts-ignore
     if(job.progress?.status !== "running"){
         // @ts-ignore
-        res.status(400).send('Stream is not running, status: ' + job.progress.status);
+        res.status(400).json({
+            id: job.id,
+            progress: job.progress,
+        });
         return;
     }
 
-    await redis.publish("meeting-"+job.id, JSON.stringify({action: "stop"}));
+    job.updateProgress({status: "pausing", fps: 0, bitrate: 0});
+    await redis.publish("job-"+job.id, JSON.stringify({action: "pause"}));
 
-    res.status(200).send( 'Stopping');
+
+    res.status(202).json({
+        id: job.id,
+        progress: job.progress,
+    });
 });
 
-app.post('/:meetingId/pause', async (req, res) => {
-    const job = await streamQueue.getJob(req.params.meetingId);
-
-    if(job == null) {
-        res.status(404).send('No stream running for this meeting');
-        return;
-    }
-
-    // @ts-ignore
-    if(job.progress?.status !== "running"){
-        // @ts-ignore
-        res.status(400).send('Stream is not running, status: ' + job.progress.status);
-        return;
-    }
-
-    await redis.publish("meeting-"+job.id, JSON.stringify({action: "pause"}));
-
-    res.status(200).send( 'Pausing');
-});
-
-app.post('/:meetingId/resume', async (req, res) => {
-    const job = await streamQueue.getJob(req.params.meetingId);
+app.post('/:jobId/resume', async (req, res) => {
+    const job = await streamQueue.getJob(req.params.jobId);
 
     if(job == null) {
         res.status(404).send('No stream running for this meeting');
@@ -117,13 +208,20 @@ app.post('/:meetingId/resume', async (req, res) => {
     // @ts-ignore
     if(job.progress?.status !== "paused"){
         // @ts-ignore
-        res.status(400).send('Stream is not paused, status: ' + job.progress.status);
+        res.status(400).json({
+            id: job.id,
+            progress: job.progress,
+        });
         return;
     }
 
-    await redis.publish("meeting-"+job.id, JSON.stringify({action: "resume"}));
+    job.updateProgress({status: "resuming", fps: 0, bitrate: 0});
+    await redis.publish("job-"+job.id, JSON.stringify({action: "resume"}));
 
-    res.status(200).send( 'Resuming');
+    res.status(202).json({
+        id: job.id,
+        progress: job.progress,
+    });
 });
 
 

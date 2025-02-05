@@ -29,6 +29,7 @@ export class BBBLiveStream{
     
     bbbStream: any;
     closing: boolean = false;
+    status: string;
 
     constructor(job: any){
         this.job = job;
@@ -43,6 +44,12 @@ export class BBBLiveStream{
         });
     }
 
+
+    async updateProgress(status: string, fps: number = null, bitrate: number = null){
+        this.status = status;
+        return await this.job.updateProgress({ status, fps, bitrate });
+    }
+
     log(message: string){
         const dateTime = new Date().toLocaleString();
         console.log(dateTime+": ["+this.job.id+"] "+message);
@@ -52,7 +59,7 @@ export class BBBLiveStream{
     }
 
     handleRedisMessages() {
-        this.redis.subscribe("meeting-"+this.job.id, (err) => {
+        this.redis.subscribe("job-"+this.job.id, (err) => {
             if (err) {
                 this.stopStream();
                 throw new Error("Failed to subscribe to redis control ws: "+err.message);
@@ -154,13 +161,14 @@ export class BBBLiveStream{
     }
 
     pause(){
-        this.job.updateProgress({status: "paused"});
+        this.updateProgress("paused");
+        this.log("Pause image "+this.pauseImageUrl);
         this.page.evaluate((pauseImageUrl: string) => {
             // If no overlay exists, add new overlay
             if(!document.getElementById('block-overlay')){
                 const g = document.createElement('div');
                 g.setAttribute("id", "block-overlay");
-                g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("'+pauseImageUrl+'"); background-size: cover; background-position: center; z-index: 100000');
+                g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("'+pauseImageUrl+'"); background-size: cover; background-position: center; z-index: 100000; background-color: #000;');
                 document.body.appendChild(g);   
             }
         }, this.pauseImageUrl); 
@@ -169,7 +177,7 @@ export class BBBLiveStream{
     }
 
     resume(){
-        this.job.updateProgress({status: "running"});
+        this.updateProgress("running");
         this.page.evaluate(() => {
             // Remove overlay if it exists
             if(document.getElementById('block-overlay')){
@@ -191,7 +199,7 @@ export class BBBLiveStream{
 
             try {
                 // Start streaming
-                await this.job.updateProgress({status: "starting"});
+                await this.updateProgress("starting");
                 this.log('Starting streaming');
 
                 const openMeeting = await this.openBBBMeeting();
@@ -200,12 +208,12 @@ export class BBBLiveStream{
                     return;
                 }
 
-                await this.job.updateProgress({status: "running"});
+                await this.updateProgress("running");
                 this.log('Started streaming');
     
                 this.rtmpStream = this.streamToRtmp();
 
-                await this.job.updateProgress({status: "running"});
+                await this.updateProgress("running");
 
                 this.bbbStream.stream.pipe(this.rtmpStream.stdin);
 
@@ -231,7 +239,6 @@ export class BBBLiveStream{
             return;
         this.closing = true;
 
-        this.job.updateProgress({status: "stopping"});
         this.log('Stopping streaming');
         
 
@@ -282,27 +289,41 @@ export class BBBLiveStream{
 
    streamToRtmp(){
     const ffmpeg = spawn('ffmpeg', [
-        "-y", "-nostats",
+        //"-y", "-nostats",
+        "-loglevel","info",
+
         "-thread_queue_size", "4096",
 
+        '-re',
         '-i', '-',
-        
-        //'-vcodec', 'copy',
-        
-        "-b:v", "4000k",
 
+
+        //'-vcodec', 'copy',
+
+    
         "-crf", "23", 
-        '-bf', '2',
+        '-bf', '2', 
    
         '-vcodec', 'libx264',
-        '-x264-params', 'keyint=30:scenecut=-1',
+        //'-x264-params', 'keyint=30:scenecut=-1:nal-hrd=cbr',
+        //'-x264-params', 'nal-hrd=cbr',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
 
-        '-bufsize', '8000k',
+        "-b:v", "10M",
+       // "-minrate", "4M",
+        "-maxrate", "10M",
+        '-bufsize', '20M',
+
+        "-vf", "fps=fps=30",
+       // "-fps_mode","cfr",
+
+        //'-g', '60',
+
         '-r', '30',
         '-g', '15',
         "-preset", "ultrafast",
+        //"-preset", "slow",
         "-tune", "zerolatency",
  
 
@@ -312,6 +333,7 @@ export class BBBLiveStream{
         "-ac", "2",
 
         "-threads", "0",
+        "-cpu-used","0",
 
         "-f", "flv",
         "-flvflags", "no_duration_filesize",
@@ -331,9 +353,63 @@ export class BBBLiveStream{
         }
     });
 
+
+    const regex = new RegExp('frame=\\s*(?<nframe>[0-9]+)\\s+fps=\\s*(?<nfps>[0-9\\.]+)\\s+q=(?<nq>[0-9\\.-]+)\\s+(L?)\\s*size=\\s*(?<nsize>[0-9]+)(?<ssize>kB|mB|b)?\\s*time=\\s*(?<sduration>[0-9\\:\\.]+)\\s*bitrate=\\s*(?<nbitrate>[0-9\\.]+)(?<sbitrate>bits\\\/s|mbits\\\/s|kbits\\\/s)?.*(dup=(?<ndup>\\d+)\\s*)?(drop=(?<ndrop>\\d+)\\s*)?speed=\\s*(?<nspeed>[0-9\\.]+)x', '')
+
+    // @ts-ignore
+    const average = list => list.reduce((prev, curr) => prev + curr) / list.length;
+
+    let fpsArray: Array<number> = [];
+    let bitrateArray: Array<number> = [];
+    let interation = 0;
+
     ffmpeg.stderr.on('data', (data) => {
         this.log('FFmpeg STDERR:'+ data.toString());
+
+        const m = regex.exec(
+            data.toString()
+        );
+
+        if(m !== null ){
+            let { nfps, nbitrate, sbitrate } =  m.groups;
+
+            let bitrate = parseFloat(nbitrate);
+            let fps = parseFloat(nfps);
+
+            if(sbitrate == "bits/s")
+                bitrate/=1000;
+
+            if(sbitrate == "mbits/s")
+                bitrate*=1000;
+
+            bitrate = Math.round(bitrate);
+
+            fpsArray.unshift(fps);
+            fpsArray = fpsArray.slice(0,30);
+
+            bitrateArray.unshift(bitrate);
+            bitrateArray = bitrateArray.slice(0,30);
+
+            interation++;
+
+            if(interation == 30){
+                interation = 0;
+
+                const fpsAvg = Math.round(average(fpsArray));
+                const bitrateAvg = Math.round(average(bitrateArray));
+
+                if(this.status == 'running')
+                    this.updateProgress(this.status, fpsAvg, bitrateAvg);
+            }
+
+            
+        }
     });
+
+    ffmpeg.stdout.on('data', (data) => {
+        this.log('FFmpeg STDOUT:'+ data.toString());
+    })
+
 
    
      return ffmpeg;
