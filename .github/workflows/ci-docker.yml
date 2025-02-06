@@ -41,7 +41,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=ref,event=branch,prefix=dev-
+            type=ref,event=branch,prefix=worker-dev-
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -85,7 +85,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=ref,event=branch,prefix=dev-
+            type=ref,event=branch,prefix=controller-dev-
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
