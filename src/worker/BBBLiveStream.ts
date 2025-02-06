@@ -146,11 +146,14 @@ export class BBBLiveStream{
             var styles = `
 
             .livestreamspinner {
-                background: radial-gradient(circle closest-side, #000 92%, #0000) calc(100% / 100) 0 / calc(100% / 101) 100%;
-                animation: l2 0.1s infinite linear;
+                background-image: repeating-linear-gradient(90deg, #000, #000 50%, #FFF 50%, #FFF);
+                background-position-x: left;
+                background-position-y: center;
+                background-size: 1% 100%;
+                animation: l1 10s infinite linear;
             }
-            @keyframes l2 {
-                100% {background-position: 0 0}
+            @keyframes l1 {
+                100% {background-position: right}
             }
             `
 
@@ -162,7 +165,7 @@ export class BBBLiveStream{
             a.setAttribute("style",'position: fixed; top: 0; left: 0; right: 0; z-index: 100005; background: #FFF;');
 
             const b = document.createElement('div');
-            b.setAttribute("style",'height: 5px; width: 100%;');
+            b.setAttribute("style",'height: 2px; width: 100%;');
             b.setAttribute("class", "livestreamspinner");
             
             a.appendChild(b);
@@ -328,23 +331,22 @@ export class BBBLiveStream{
         //'-vcodec', 'copy',
 
     
-        //"-crf", "23", 
+        "-crf", "23", 
         '-bf', '2', 
    
         '-vcodec', 'libx264',
-        '-x264-params', 'keyint=30:scenecut=-1:nal-hrd=cbr',
+        '-x264-params', 'keyint=30:scenecut=-1',
         //'-x264-params', 'nal-hrd=cbr',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
 
-        //"-b:v", "1M",
-        "-minrate", "10M",
+        "-b:v", "10M",
         "-maxrate", "10M",
-        '-bufsize', '20M',
+        '-bufsize', '10M',
 
         //"-vf", "crop=1920:1070:0:10",
         //"-vf", "fps=fps=30",
-        "-vf", "fps=fps=30, crop=1920:1070:0:10",
+        "-vf", "fps=fps=30, crop=1920:1078:0:2",
        // "-fps_mode","cfr",
 
         //'-g', '60',
