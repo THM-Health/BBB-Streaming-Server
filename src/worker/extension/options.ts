@@ -76,8 +76,9 @@ async function START_RECORDING(opts: recordingOptions) {
 		);
 	});
 
-	var constraints = { frameRate: 30 };
+	/*var constraints = { frameRate: 30 };
 	stream.getVideoTracks()[0].applyConstraints(constraints).catch((e: any) => console.log(e));
+*/
 
 	// somtimes needed to sync audio and video
 	if (opts.delay) await new Promise((resolve) => setTimeout(resolve, opts.delay));

@@ -128,9 +128,9 @@ export class BBBLiveStream{
         const bbbStreamOptions: getStreamOptions = {
             audio: true,
             video: true,
-            audioBitsPerSecond: 128000,
+            audioBitsPerSecond: 160000,
             videoBitsPerSecond: 2500000,
-            frameSize: 30,
+            frameSize: 1000,
             mimeType: 'video/webm;codecs=h264'
         }
 
@@ -141,6 +141,33 @@ export class BBBLiveStream{
         const consoleLog = (msg: string) => {
             this.log("CONSOLE: "+msg);
         };
+
+        this.page.evaluate(() => {
+            var styles = `
+
+            .livestreamspinner {
+                background: radial-gradient(circle closest-side, #000 92%, #0000) calc(100% / 100) 0 / calc(100% / 101) 100%;
+                animation: l2 0.1s infinite linear;
+            }
+            @keyframes l2 {
+                100% {background-position: 0 0}
+            }
+            `
+
+            var styleSheet = document.createElement("style");
+            styleSheet.textContent = styles;
+            document.head.appendChild(styleSheet);
+
+            const a = document.createElement('div');
+            a.setAttribute("style",'position: fixed; top: 0; left: 0; right: 0; z-index: 100005; background: #FFF;');
+
+            const b = document.createElement('div');
+            b.setAttribute("style",'height: 5px; width: 100%;');
+            b.setAttribute("class", "livestreamspinner");
+            
+            a.appendChild(b);
+            document.body.appendChild(a);
+        });
 
         this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
 
@@ -171,7 +198,7 @@ export class BBBLiveStream{
                 g.setAttribute("style",'position: fixed; top: 0; right: 0; left: 0; bottom: 0; background-image: url("'+pauseImageUrl+'"); background-size: cover; background-position: center; z-index: 100000; background-color: #000;');
                 document.body.appendChild(g);   
             }
-        }, this.pauseImageUrl); 
+        }, this.pauseImageUrl);
 
         this.bbbStream.mute();
     }
@@ -301,21 +328,23 @@ export class BBBLiveStream{
         //'-vcodec', 'copy',
 
     
-        "-crf", "23", 
+        //"-crf", "23", 
         '-bf', '2', 
    
         '-vcodec', 'libx264',
-        //'-x264-params', 'keyint=30:scenecut=-1:nal-hrd=cbr',
+        '-x264-params', 'keyint=30:scenecut=-1:nal-hrd=cbr',
         //'-x264-params', 'nal-hrd=cbr',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
 
-        "-b:v", "10M",
-       // "-minrate", "4M",
+        //"-b:v", "1M",
+        "-minrate", "10M",
         "-maxrate", "10M",
         '-bufsize', '20M',
 
-        "-vf", "fps=fps=30",
+        //"-vf", "crop=1920:1070:0:10",
+        //"-vf", "fps=fps=30",
+        "-vf", "fps=fps=30, crop=1920:1070:0:10",
        // "-fps_mode","cfr",
 
         //'-g', '60',
