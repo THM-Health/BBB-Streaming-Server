@@ -4,6 +4,7 @@ import * as path from "node:path";
 import axios from 'axios';
 const redisHost: string = process.env.REDIS_HOST || 'redis';
 const redisPort: number = Number(process.env.REDIS_PORT) || 6379;
+const concurrency: number = Number(process.env.CONCURRENCY) || 1;
 
 // Create a Redis client
 const redis = new Redis({
@@ -17,7 +18,7 @@ const processorFile = path.join(__dirname, 'sandbox.js');
 const worker = new Worker('streams', processorFile,
   { connection: redis,
     removeOnComplete: { count: 0 },
-    concurrency: 50
+    concurrency: concurrency
   });
 
 worker.on("error", (error) => {

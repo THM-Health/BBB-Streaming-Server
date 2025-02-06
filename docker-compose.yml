@@ -3,6 +3,8 @@ services:
     image: pilos/bbb-streaming-server:worker-dev-main
     depends_on:
       - redis
+    environment:
+      CONCURRENCY: 1
     deploy:
       mode: replicated
       replicas: 5
