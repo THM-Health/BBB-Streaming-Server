@@ -31,5 +31,7 @@ COPY --chown=streaming:streaming ../.. /home/streaming
 # Run npm install
 RUN npm install
 
+RUN npm run build
+
 ENTRYPOINT ["tini", "--"]
 CMD ["npm", "run", "start"]

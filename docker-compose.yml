@@ -1,13 +1,13 @@
 services:
   worker:
-    image: pilos/bbb-streaming-server:worker-latest
+    image: pilos/bbb-streaming-server:worker-dev-main
     depends_on:
       - redis
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 5
   controller:
-    image: pilos/bbb-streaming-server:controller-latest
+    image: pilos/bbb-streaming-server:controller-dev-main
     ports:
       - "127.0.0.1:8900:3000"
     depends_on:
