@@ -1,0 +1,19 @@
+services:
+  worker:
+    image: pilos/bbb-streaming-server:worker-latest
+    depends_on:
+      - redis
+    deploy:
+      mode: replicated
+      replicas: 1
+  controller:
+    image: pilos/bbb-streaming-server:controller-latest
+    ports:
+      - "127.0.0.1:8900:3000"
+    depends_on:
+      - redis
+  redis:
+    image: redis:latest
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]

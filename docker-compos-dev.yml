@@ -25,7 +25,5 @@ services:
   redis:
     image: redis:latest
     restart: always
-    #volumes:
-    #  - ./redis/dаta:/root/redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
