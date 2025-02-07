@@ -5,6 +5,7 @@ import {Queue} from "bullmq";
 import { checkSchema, validationResult, matchedData } from 'express-validator';
 import { createHash } from 'crypto';
 import { URL } from 'node:url';
+import { run } from 'node:test';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,8 +24,35 @@ const redis = new Redis({
 
 const streamQueue = new Queue('streams', { connection: redis });
 
-app.get('/', (req, res) => {
-    res.send('Hello Redis with Express.js and TypeScript!');
+app.get('/health', async (req, res) => {
+    try {
+        // Check Redis connection
+        const redisPing = await redis.ping();
+
+        // Determine the number of workers
+       const workerCount = await streamQueue.getWorkersCount();
+
+        const waitingCount = await streamQueue.getWaitingCount();
+        const runningCount = await streamQueue.getActiveCount();
+
+        if (redisPing !== 'PONG' || workerCount < 1) {
+            return res.status(503).json({
+                workerCount,
+                waitingCount,
+                runningCount
+            });
+        }
+
+        res.status(200).json({
+            workerCount,
+            waitingCount,
+            runningCount
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            error: error.toString(),
+        });
+    }
 });
 
 
