@@ -12,53 +12,8 @@ externalDocs:
     url: https://github.com/THM-Health/BBB-Streaming-Server
     
 paths:
-  /health:
-    get:
-      summary: Health check
-      description: >
-        Checks server health by verifying the Redis connection and obtaining
-        the counts for workers, waiting jobs, and running jobs.
-      tags:
-        - Health
-      responses:
-        '200':
-          description: Healthy status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  workerCount:
-                    type: integer
-                    example: 2
-                  waitingCount:
-                    type: integer
-                    example: 3
-                  runningCount:
-                    type: integer
-                    example: 1
-        '503':
-          description: Service Unavailable when Redis or workers are not available
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  workerCount:
-                    type: integer
-                  waitingCount:
-                    type: integer
-                  runningCount:
-                    type: integer
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+  
+  /:
     post:
       summary: Create a new streaming job
       description: Creates a new streaming job using the provided JSON payload.
@@ -201,3 +156,78 @@ paths:
           description: Stream not found
         '400':
           description: Invalid status for resume request
+  /health:
+    get:
+      summary: Health check
+      description: >
+        Checks server health by verifying the Redis connection and obtaining
+        the counts for workers, waiting jobs, and running jobs.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Healthy status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workerCount:
+                    type: integer
+                    example: 2
+                  waitingCount:
+                    type: integer
+                    example: 3
+                  runningCount:
+                    type: integer
+                    example: 1
+        '503':
+          description: Service Unavailable when Redis or workers are not available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workerCount:
+                    type: integer
+                  waitingCount:
+                    type: integer
+                  runningCount:
+                    type: integer
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+  /metrics:
+    get:
+      summary: Export Prometheus metrics
+      description: Retrieves Prometheus formatted metrics for the streaming server.
+      tags:
+        - Metrics
+      responses:
+        '200':
+          description: Prometheus metrics successfully retrieved.
+          content:
+            text/plain:
+              example: |
+                  # HELP bullmq_job_count Number of jobs in the queue by state
+                  # TYPE bullmq_job_count gauge
+                  bullmq_job_count{queue="streams", state="active"} 0
+                  bullmq_job_count{queue="streams", state="completed"} 0
+                  bullmq_job_count{queue="streams", state="delayed"} 0
+                  bullmq_job_count{queue="streams", state="failed"} 0
+                  bullmq_job_count{queue="streams", state="paused"} 0
+                  bullmq_job_count{queue="streams", state="prioritized"} 0
+                  bullmq_job_count{queue="streams", state="waiting"} 0
+                  bullmq_job_count{queue="streams", state="waiting-children"} 0
+        '500':
+          description: Internal Server Error retrieving metrics.
+          content:
+            text/plain:
+              schema:
+                type: string

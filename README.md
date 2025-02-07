@@ -46,6 +46,7 @@ This project consists of two main components:
 The Controller exposes the following API endpoints:
 
 - `GET /health` – Check server health and basic metrics.
+- `GET /metrics` – Prometheus formatted metrics.
 - `POST /` – Create a new streaming job.
 - `GET /{jobId}` – Retrieve the status of a streaming job by job ID.
 - `POST /{jobId}/stop` – Stop a running stream.

@@ -5,7 +5,6 @@ import {Queue} from "bullmq";
 import { checkSchema, validationResult, matchedData } from 'express-validator';
 import { createHash } from 'crypto';
 import { URL } from 'node:url';
-import { run } from 'node:test';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -55,6 +54,15 @@ app.get('/health', async (req, res) => {
     }
 });
 
+app.get('/metrics', async (req, res) => {
+    try {
+        const metrics = await streamQueue.exportPrometheusMetrics();
+        res.set('Content-Type', 'text/plain');
+        res.send(metrics);
+    } catch (err: any) {
+        res.status(500).send(err.message);
+    }
+});
 
 const createSchema = {
     joinUrl: {
