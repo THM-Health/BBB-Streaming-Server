@@ -25,7 +25,7 @@ This project consists of two main components:
 ### Installation
 
 1. Create a new directory and place the `docker-compose.yml` file in it.
-2. Adjust the `replicas` value to set the number of workers. By default, each worker can handle one livestream.
+2. Adjust the `replicas` value to set the number of workers. By default, each worker can handle one streams.
 3. Modify the `CONCURRENCY` environment variable if you want to allow multiple meetings per worker.
 4. Start the stack by running:
    ```sh
@@ -52,5 +52,5 @@ The Controller exposes the following API endpoints:
 - `POST /{jobId}/pause` – Pause a running stream.
 - `POST /{jobId}/resume` – Resume a paused stream.
 
-For more details, refer to the OpenAPI specification in [`openapi.yaml`](openapi.yaml).
+For more details, refer to the [API Documentation](https://thm-health.github.io/BBB-Streaming-Server/).
 
