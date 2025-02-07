@@ -1,0 +1,38 @@
+name: Create API Docs
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    name: Build OpenAPI documentation
+    runs-on: ubuntu-latest  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Generate Swagger UI
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          output: swagger-ui
+          spec-file: openapi.yaml
+          version: '^5.18.3'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./swagger-ui
+  deploy:
+    name: Deploy docs to gh-pages
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: API Documentation
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
