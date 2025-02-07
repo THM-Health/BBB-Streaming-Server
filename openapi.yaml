@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: BBB Livestreaming Server API
+  version: "0.0.1"
+  description: API for managing livestreaming jobs for BigBlueButton meetings.
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: >
+        Checks server health by verifying the Redis connection and obtaining
+        the counts for workers, waiting jobs, and running jobs.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Healthy status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workerCount:
+                    type: integer
+                    example: 2
+                  waitingCount:
+                    type: integer
+                    example: 3
+                  runningCount:
+                    type: integer
+                    example: 1
+        '503':
+          description: Service Unavailable when Redis or workers are not available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workerCount:
+                    type: integer
+                  waitingCount:
+                    type: integer
+                  runningCount:
+                    type: integer
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+    post:
+      summary: Create a new streaming job
+      description: Creates a new streaming job using the provided JSON payload.
+      tags:
+        - Streaming
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                joinUrl:
+                  type: string
+                  description: URL to join the meeting.
+                pauseImageUrl:
+                  type: string
+                  description: (Optional) URL of the pause image.
+                rtmpUrl:
+                  type: string
+                  description: RTMP target URL for the stream.
+                webhookUrl:
+                  type: string
+                  description: (Optional) URL for sending updates.
+              required:
+                - joinUrl
+                - rtmpUrl
+      responses:
+        '201':
+          description: Streaming job created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  progress:
+                    type: object
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        msg:
+                          type: string
+                        path:
+                          type: string
+                        location:
+                          type: string
+  /{jobId}:
+    get:
+      summary: Get streaming job status
+      description: Retrieves the status of a streaming job by job ID.
+      tags:
+        - Streaming
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  progress:
+                    type: object
+        '404':
+          description: Job not found
+  /{jobId}/stop:
+    post:
+      summary: Stop a running stream
+      description: Sends a stop command to the streaming job.
+      tags:
+        - Streaming
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Stop command accepted
+        '404':
+          description: No stream associated with this job
+        '400':
+          description: Invalid status for stop request
+  /{jobId}/pause:
+    post:
+      summary: Pause a running stream
+      description: Pauses the running stream.
+      tags:
+        - Streaming
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Pause request accepted
+        '404':
+          description: Stream not found
+        '400':
+          description: Invalid status for pause request
+  /{jobId}/resume:
+    post:
+      summary: Resume a paused stream
+      description: Resumes a paused stream.
+      tags:
+        - Streaming
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Resume request accepted
+        '404':
+          description: Stream not found
+        '400':
+          description: Invalid status for resume request
