@@ -1,7 +1,7 @@
 import { launch, getStream, getStreamOptions } from "./PuppeteerStream";
 import {ChildProcessWithoutNullStreams, spawn} from "node:child_process";
 import Redis from "ioredis";
-import { SandboxedJob } from 'bullmq';
+import { SandboxedJob, UnrecoverableError } from 'bullmq';
 import { Browser, Page } from "puppeteer-core";
 import getenv from 'getenv';
 
@@ -137,7 +137,6 @@ export class BBBLiveStream{
         }
         catch(error){
             this.log("Could not found audio button");
-            this.stopStream();
             return false;
         }
 
@@ -192,6 +191,8 @@ export class BBBLiveStream{
         this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
 
         this.waitForMeetingEnded();
+
+        return true;
     }
 
     async waitForMeetingEnded(){
@@ -200,7 +201,9 @@ export class BBBLiveStream{
         try{
             await this.page.waitForSelector('[data-test="meetingEndedModal"]');
             this.log("Meeting ended or user removed");
-            this.stopStream();
+            this.stopStream().then(() => {
+                this.streamEnded();
+            });
         }
         catch(error){
             this.waitForMeetingEnded();
@@ -251,8 +254,7 @@ export class BBBLiveStream{
 
                 const openMeeting = await this.openBBBMeeting();
                 if(openMeeting === false){
-                    this.streamEnded();
-                    return;
+                    throw new UnrecoverableError('Failed to join meeting');
                 }
 
                 await this.updateProgress("running");
@@ -273,7 +275,10 @@ export class BBBLiveStream{
                 this.log('Error during streaming: '+JSON.stringify(error?.stack),'error');
 
                 this.stopStream().then(() => {
-                    throw new Error('Error during streaming: '+JSON.stringify(error));
+                    if(error instanceof UnrecoverableError)
+                        throw error;
+                    else
+                        throw new Error('Error during streaming: '+JSON.stringify(error));
                 })
                 
             }
@@ -342,7 +347,7 @@ export class BBBLiveStream{
 
         '-re',
         '-i', '-',
-    
+
         "-crf", ffmpegCRF, 
         '-bf', '2', 
    
