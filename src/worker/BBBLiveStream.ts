@@ -11,6 +11,7 @@ const ffmpegMetricsAvgLength = Number(process.env.FFMPEG_METRICS_AVG_LEN) || 10;
 const debug = Boolean(process.env.DEBUG) || false;
 const width = 1920;
 const height = 1080;
+const constantMotionElementHeight = 2;
 
 export class BBBLiveStream{
 
@@ -109,16 +110,14 @@ export class BBBLiveStream{
     async openBBBMeeting(){
         const options = {
             executablePath: "/usr/bin/google-chrome",
-            defaultViewport: { width, height },
+            defaultViewport: { width, height:height+constantMotionElementHeight },
             //dumpio: true,
             args: [
                 '--no-zygote',
                 '--no-sandbox',
                 '--start-fullscreen',
                 '--disable-gpu',
-                `--window-size=${width},${height}`,
                 '--disable-setuid-sandbox',
-                `--ozone-override-screen-size=${width},${height}`,
                 '--headless=new',
             ],
             closeDelay: 100
@@ -129,7 +128,6 @@ export class BBBLiveStream{
         this.page = await this.browser.newPage();
 
         await this.page.goto(this.joinUrl);
-        await this.page.setViewport({width, height});
 
         try{
             await this.page.locator('[data-test="listenOnlyBtn"]').setTimeout(30000).click();
@@ -157,10 +155,11 @@ export class BBBLiveStream{
             this.log("CONSOLE: "+msg, 'debug');
         };
 
-        this.page.evaluate(() => {
+        // Add constant motion element to create constant motion in the browser
+        this.page.evaluate((constantMotionElementHeight: number) => {
             var styles = `
 
-            .livestreamspinner {
+            .constant-motion {
                 background-image: repeating-linear-gradient(90deg, #000, #000 50%, #FFF 50%, #FFF);
                 background-position-x: left;
                 background-position-y: center;
@@ -176,16 +175,16 @@ export class BBBLiveStream{
             styleSheet.textContent = styles;
             document.head.appendChild(styleSheet);
 
-            const a = document.createElement('div');
-            a.setAttribute("style",'position: fixed; top: 0; left: 0; right: 0; z-index: 100005; background: #FFF;');
+            const constantMotionWrapper = document.createElement('div');
+            constantMotionWrapper.setAttribute("style",'position: fixed; top: 0; left: 0; right: 0; z-index: 100005; background: #FFF;');
 
-            const b = document.createElement('div');
-            b.setAttribute("style",'height: 2px; width: 100%;');
-            b.setAttribute("class", "livestreamspinner");
+            const constantMotionElement = document.createElement('div');
+            constantMotionElement.setAttribute("style",'height: '+constantMotionElementHeight+'px; width: 100%;');
+            constantMotionElement.setAttribute("class", "constant-motion");
             
-            a.appendChild(b);
-            document.body.appendChild(a);
-        });
+            constantMotionWrapper.appendChild(constantMotionElement);
+            document.body.appendChild(constantMotionWrapper);
+        }, constantMotionElementHeight);
 
         this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
 
@@ -361,7 +360,7 @@ export class BBBLiveStream{
 
         //"-vf", "crop=1920:1070:0:10",
         //"-vf", "fps=fps=30",
-        "-vf", "fps=fps=30, crop=1920:1078:0:2",
+        "-vf", "fps=fps=30, crop=1920:1080:0:"+constantMotionElementHeight,
        // "-fps_mode","cfr",
 
         //'-g', '60',
