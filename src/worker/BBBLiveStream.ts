@@ -3,12 +3,16 @@ import {ChildProcessWithoutNullStreams, spawn} from "node:child_process";
 import Redis from "ioredis";
 import { SandboxedJob } from 'bullmq';
 import { Browser, Page } from "puppeteer-core";
+import getenv from 'getenv';
 
-const redisHost = process.env.REDIS_HOST || 'redis';
-const redisPort = Number(process.env.REDIS_PORT) || 6379;
-const ffmpegMetricsInterval = Number(process.env.FFMPEG_METRICS_INTVL) || 5;
-const ffmpegMetricsAvgLength = Number(process.env.FFMPEG_METRICS_AVG_LEN) || 10;
-const debug = Boolean(process.env.DEBUG) || false;
+const redisHost = getenv('REDIS_HOST', 'redis');
+const redisPort = getenv.int('REDIS_PORT', 6379);
+const ffmpegMetricsInterval = getenv.int('FFMPEG_METRICS_INTVL', 5);
+const ffmpegMetricsAvgLength = getenv.int('FFMPEG_METRICS_AVG_LEN', 10);
+const ffmpegCRF = getenv.int('FFMPEG_CRF', 23).toString();
+const ffmpegBitrate = getenv.int('FFMPEG_BITRATE', 10);
+const debug = getenv.bool('DEBUG', false);
+
 const width = 1920;
 const height = 1080;
 const constantMotionElementHeight = 2;
@@ -339,7 +343,7 @@ export class BBBLiveStream{
         '-re',
         '-i', '-',
     
-        "-crf", "23", 
+        "-crf", ffmpegCRF, 
         '-bf', '2', 
    
         '-vcodec', 'libx264',
@@ -347,14 +351,14 @@ export class BBBLiveStream{
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
 
-        "-b:v", "10M",
-        "-maxrate", "10M",
-        '-bufsize', '10M',
+        "-b:v", ffmpegBitrate+"M",
+        "-maxrate", ffmpegBitrate+"M",
+        '-bufsize', (ffmpegBitrate*2)+"M",
 
-        "-vf", "fps=fps=30, crop=1920:1080:0:"+constantMotionElementHeight,
+        "-vf", "fps=fps=30, crop="+width+":"+height+":0:"+constantMotionElementHeight,
 
         '-r', '30',
-        '-g', '15',
+        '-g', '60',
         "-preset", "ultrafast",
         "-tune", "zerolatency",
  

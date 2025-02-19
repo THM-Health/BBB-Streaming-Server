@@ -11,6 +11,7 @@
   "author": "",
   "devDependencies": {
     "@types/chrome": "^0.0.273",
+    "@types/getenv": "^1.0.3",
     "@types/ioredis": "^5.0.0",
     "@types/node": "^20.12.8",
     "@types/redis": "^4.0.11",
@@ -22,6 +23,7 @@
   "dependencies": {
     "axios": "^1.7.7",
     "bullmq": "^5.29.1",
+    "getenv": "^1.0.0",
     "ioredis": "^5.4.1",
     "puppeteer-core": "^23.4.1",
     "redis": "^4.6.13",
