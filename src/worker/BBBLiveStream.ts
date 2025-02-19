@@ -6,6 +6,9 @@ import { Browser, Page } from "puppeteer-core";
 
 const redisHost = process.env.REDIS_HOST || 'redis';
 const redisPort = Number(process.env.REDIS_PORT) || 6379;
+const ffmpegMetricsInterval = Number(process.env.FFMPEG_METRICS_INTVL) || 5;
+const ffmpegMetricsAvgLength = Number(process.env.FFMPEG_METRICS_AVG_LEN) || 10;
+const debug = Boolean(process.env.DEBUG) || false;
 const width = 1920;
 const height = 1080;
 
@@ -50,12 +53,24 @@ export class BBBLiveStream{
         return await this.job.updateProgress({ status, fps, bitrate });
     }
 
-    log(message: string){
+    log(message: string, type: string = "info"){
         const dateTime = new Date().toLocaleString();
-        console.log(dateTime+": ["+this.job.id+"] "+message);
-    
-        //this.job.log(message);
-        
+        const logMessage = dateTime+": ["+this.job.id+"] "+message; 
+        switch(type){
+            case "debug":
+                if(debug)
+                    console.debug(logMessage);
+                break;
+            case "error":
+                console.error(logMessage);
+                break;
+            case "warn":
+                console.warn(logMessage);
+                break;
+            default:
+                console.log(logMessage);
+                break;
+        }
     }
 
     handleRedisMessages() {
@@ -139,7 +154,7 @@ export class BBBLiveStream{
         });
 
         const consoleLog = (msg: string) => {
-            this.log("CONSOLE: "+msg);
+            this.log("CONSOLE: "+msg, 'debug');
         };
 
         this.page.evaluate(() => {
@@ -249,11 +264,11 @@ export class BBBLiveStream{
 
 
             } catch (error) {
-                this.log('Error during streaming: '+JSON.stringify(error));
+                this.log('Error during streaming: '+JSON.stringify(error),'error');
                 // @ts-ignore
-                this.log('Error during streaming: '+JSON.stringify(error?.message));
+                this.log('Error during streaming: '+JSON.stringify(error?.message),'error');
                 // @ts-ignore
-                this.log('Error during streaming: '+JSON.stringify(error?.stack));
+                this.log('Error during streaming: '+JSON.stringify(error?.stack),'error');
 
                 this.stopStream().then(() => {
                     throw new Error('Error during streaming: '+JSON.stringify(error));
@@ -281,7 +296,7 @@ export class BBBLiveStream{
             this.log("Page closed");
         }
         catch(error){
-            this.log('Error closing page:'+JSON.stringify(error));
+            this.log('Error closing page:'+JSON.stringify(error),'error');
         }
 
         try{
@@ -289,7 +304,7 @@ export class BBBLiveStream{
             this.log("Stream stopped");
         }
         catch(error){
-            this.log('Error stopping stream: '+JSON.stringify(error));
+            this.log('Error stopping stream: '+JSON.stringify(error),'error');
         }
 
         try{
@@ -297,7 +312,7 @@ export class BBBLiveStream{
             this.log("Browser closed");
         }
         catch(error){
-            this.log("Error closing browser:" +JSON.stringify(error));
+            this.log("Error closing browser:" +JSON.stringify(error),'error');
             
             if (this.browser && this.browser.process() != null){
                 this.browser.process().kill('SIGKILL');
@@ -309,7 +324,7 @@ export class BBBLiveStream{
             this.log("FFmpeg stopped");
         }
         catch(error){
-            this.log('Error killing FFmpeg:'+JSON.stringify(error));
+            this.log('Error killing FFmpeg:'+JSON.stringify(error),'error');
         }
 
         
@@ -395,14 +410,14 @@ export class BBBLiveStream{
     let interation = 0;
 
     ffmpeg.stderr.on('data', (data) => {
-        this.log('FFmpeg STDERR:'+ data.toString());
-
         const m = regex.exec(
             data.toString()
         );
 
         if(m !== null ){
-            let { nfps, nbitrate, sbitrate } =  m.groups;
+            let { nfps, nbitrate, sbitrate, sduration } =  m.groups;
+
+            this.log('['+sduration+'] FPS: '+nfps+' Bitrate: '+nbitrate+sbitrate, 'debug');
 
             let bitrate = parseFloat(nbitrate);
             let fps = parseFloat(nfps);
@@ -415,25 +430,29 @@ export class BBBLiveStream{
 
             bitrate = Math.round(bitrate);
 
+
             fpsArray.unshift(fps);
-            fpsArray = fpsArray.slice(0,30);
+            fpsArray = fpsArray.slice(0,ffmpegMetricsAvgLength);
 
             bitrateArray.unshift(bitrate);
-            bitrateArray = bitrateArray.slice(0,30);
+            bitrateArray = bitrateArray.slice(0,ffmpegMetricsAvgLength);
 
             interation++;
 
-            if(interation == 30){
+            if(interation == ffmpegMetricsInterval){
                 interation = 0;
 
                 const fpsAvg = Math.round(average(fpsArray));
                 const bitrateAvg = Math.round(average(bitrateArray));
 
+                this.log('AVG: FPS: '+fpsAvg+' Bitrate: '+bitrateAvg+sbitrate, 'debug');
+
                 if(this.status == 'running')
                     this.updateProgress(this.status, fpsAvg, bitrateAvg);
             }
-
-            
+        }
+        else{
+            this.log('FFmpeg:'+ data.toString(), 'debug');
         }
     });
 
