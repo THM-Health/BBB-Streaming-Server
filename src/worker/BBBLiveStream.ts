@@ -111,7 +111,6 @@ export class BBBLiveStream{
         const options = {
             executablePath: "/usr/bin/google-chrome",
             defaultViewport: { width, height:height+constantMotionElementHeight },
-            //dumpio: true,
             args: [
                 '--no-zygote',
                 '--no-sandbox',
@@ -333,24 +332,18 @@ export class BBBLiveStream{
 
    streamToRtmp(){
     const ffmpeg = spawn('ffmpeg', [
-        //"-y", "-nostats",
         "-loglevel","info",
 
         "-thread_queue_size", "4096",
 
         '-re',
         '-i', '-',
-
-
-        //'-vcodec', 'copy',
-
     
         "-crf", "23", 
         '-bf', '2', 
    
         '-vcodec', 'libx264',
         '-x264-params', 'keyint=30:scenecut=-1',
-        //'-x264-params', 'nal-hrd=cbr',
         '-profile:v', 'high',
         '-pix_fmt', "yuv420p",
 
@@ -358,17 +351,11 @@ export class BBBLiveStream{
         "-maxrate", "10M",
         '-bufsize', '10M',
 
-        //"-vf", "crop=1920:1070:0:10",
-        //"-vf", "fps=fps=30",
         "-vf", "fps=fps=30, crop=1920:1080:0:"+constantMotionElementHeight,
-       // "-fps_mode","cfr",
-
-        //'-g', '60',
 
         '-r', '30',
         '-g', '15',
         "-preset", "ultrafast",
-        //"-preset", "slow",
         "-tune", "zerolatency",
  
 
