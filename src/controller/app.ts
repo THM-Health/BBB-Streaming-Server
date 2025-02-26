@@ -11,6 +11,9 @@ const port = process.env.PORT || 3000;
 
 const redisHost: string = process.env.REDIS_HOST || 'redis';
 const redisPort: number = Number(process.env.REDIS_PORT) || 6379;
+const failedJobAttempts: number = Number(process.env.FAILED_JOB_ATTEMPTS) || 3;
+const keepCompletedJobsDuration: number = Number(process.env.KEEP_COMPLETED_JOBS_DURATION) || 60*60;
+const keepFailedJobsDuration: number = Number(process.env.KEEP_FAILED_JOBS_DURATION) || 60*60;
 
 app.use(express.json());
 
@@ -29,7 +32,7 @@ app.get('/health', async (req, res) => {
         const redisPing = await redis.ping();
 
         // Determine the number of workers
-       const workerCount = await streamQueue.getWorkersCount();
+        const workerCount = await streamQueue.getWorkersCount();
 
         const waitingCount = await streamQueue.getWaitingCount();
         const runningCount = await streamQueue.getActiveCount();
@@ -38,19 +41,70 @@ app.get('/health', async (req, res) => {
             return res.status(503).json({
                 workerCount,
                 waitingCount,
-                runningCount
+                runningCount,
             });
         }
 
+        const worker = await streamQueue.getWorkers();
+        // Assiciated array with worker name as key and value of active jobs as value
+        let workerList: {[key: string]: number} = {};
+        for (const [i, value] of worker.entries()) {
+            const workerName = value.rawname.split(':').pop();
+            if(workerName === undefined)
+                continue;
+
+            workerList[workerName] = 0
+        };
+
+        // sort the workers by key
+        workerList = Object.keys(workerList).sort().reduce((acc, key) => {
+            // @ts-ignore
+            acc[key] = workerList[key];
+            return acc;
+        }, {});
+        
+
+
+
+        const runningJobs = await streamQueue.getActive();
+        for (const [i, value] of runningJobs.entries()) {
+            workerList[value.processedBy] += 1;
+        };
+
+        const queueStatus = await streamQueue.isPaused() ? 'paused' : 'running';
+
+
         res.status(200).json({
+            queueStatus,
             workerCount,
             waitingCount,
-            runningCount
+            runningCount,
+            workerList,
         });
     } catch (error: any) {
         res.status(500).json({
             error: error.toString(),
         });
+    }
+});
+
+// Pause queue
+app.get('/pause', async (req, res) => {
+    try {
+        await streamQueue.pause();
+        res.status(200).send('Queue paused');
+    } catch (error: any) {
+        res.status(500).send(error.toString());
+    }
+});
+
+// Resume queue
+app.get('/resume', async (req, res) => {
+    try {
+        await streamQueue.resume();
+        res.status(200).send('Queue resumed');
+    } catch (error: any) {
+        res.status(500).send(error.toString());
     }
 });
 
@@ -69,9 +123,6 @@ const createSchema = {
         notEmpty: true
     },
     pauseImageUrl: {
-        optional: true,
-    },
-    webhookUrl: {
         optional: true,
     },
     rtmpUrl: {
@@ -143,19 +194,37 @@ app.post('/', checkSchema(createSchema, ['body']), async (req: Request, res: Res
         joinUrl: data.joinUrl,
         pauseImageUrl: data.pauseImageUrl,
         rtmpUrl: data.rtmpUrl,
-        webhookUrl: data.webhookUrl
     };
 
-    //console.log('New job', JSON.stringify(jobData));
+    let job = await streamQueue.getJob(jobId);
 
-    const job = await streamQueue.add(
-        'meeting',
-        jobData,
-        {
-            jobId: jobId,
-            removeOnComplete: true
+    if(job !== undefined && await job.isFailed()){
+        console.log('Retrying failed job' + job.id);
+        await job.retry();
+    }
+    else{
+        if(job !== undefined && await job.isCompleted()){
+            console.log('Restarting stopped job' + job.id);
+            await job.remove();
         }
-    );
+
+        job = await streamQueue.add(
+            'meeting',
+            jobData,
+            {
+                jobId: jobId,
+                attempts: failedJobAttempts,
+                removeOnComplete: {
+                    age: keepCompletedJobsDuration
+                },
+                removeOnFail: {
+                    age: keepFailedJobsDuration
+                },
+            }
+        );
+    }
+
+    
     job.updateProgress({status: "queued", fps: 0, bitrate: 0});
     res.status(201).json({
         id: job.id,
@@ -172,9 +241,12 @@ app.get('/:jobId', async (req, res) => {
         return;
     }
 
+    const state = await job.getState();
+
     res.status(200).json({
         id: job.id,
         progress: job.progress,
+        state: state
     });
 });
 

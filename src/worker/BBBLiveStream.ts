@@ -4,6 +4,8 @@ import Redis from "ioredis";
 import { SandboxedJob, UnrecoverableError } from 'bullmq';
 import { Browser, Page } from "puppeteer-core";
 import getenv from 'getenv';
+import pino from 'pino';
+import { format }from 'node:util';
 
 const redisHost = getenv('REDIS_HOST', 'redis');
 const redisPort = getenv.int('REDIS_PORT', 6379);
@@ -11,12 +13,21 @@ const ffmpegMetricsInterval = getenv.int('FFMPEG_METRICS_INTVL', 5);
 const ffmpegMetricsAvgLength = getenv.int('FFMPEG_METRICS_AVG_LEN', 10);
 const ffmpegCRF = getenv.int('FFMPEG_CRF', 23).toString();
 const ffmpegBitrate = getenv.int('FFMPEG_BITRATE', 10);
-const debug = getenv.bool('DEBUG', false);
+const jsonLogs = getenv.bool('JSON_LOGS', true);
 
 const width = 1920;
 const height = 1080;
 const constantMotionElementHeight = 2;
 
+    const logger = pino({
+        level: process.env.LOG_LEVEL || 'info',
+        transport: !jsonLogs ? {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } : undefined,
+    });
 export class BBBLiveStream{
 
     redis: Redis;
@@ -39,6 +50,8 @@ export class BBBLiveStream{
     closing: boolean = false;
     status: string;
 
+    ffmpegError: string;
+
     constructor(job: any){
         this.job = job;
         this.joinUrl = job.data.joinUrl;
@@ -52,30 +65,9 @@ export class BBBLiveStream{
         });
     }
 
-
     async updateProgress(status: string, fps: number = null, bitrate: number = null){
         this.status = status;
         return await this.job.updateProgress({ status, fps, bitrate });
-    }
-
-    log(message: string, type: string = "info"){
-        const dateTime = new Date().toLocaleString();
-        const logMessage = dateTime+": ["+this.job.id+"] "+message; 
-        switch(type){
-            case "debug":
-                if(debug)
-                    console.debug(logMessage);
-                break;
-            case "error":
-                console.error(logMessage);
-                break;
-            case "warn":
-                console.warn(logMessage);
-                break;
-            default:
-                console.log(logMessage);
-                break;
-        }
     }
 
     handleRedisMessages() {
@@ -84,27 +76,28 @@ export class BBBLiveStream{
                 this.stopStream();
                 throw new Error("Failed to subscribe to redis control ws: "+err.message);
             } else {
-                this.log(
-                    `Connected to redis control ws.`
-                );
+                logger.debug(`Connected to redis control ws.`);
             }
         });
 
         this.redis.on("message", async(channel, message) => {
-            this.log(`Received ${message} from ${channel}`);
+            logger.debug(`Received ${message} from ${channel}`);
             const data = JSON.parse(message);
 
             if (data.action === "pause") {
+                logger.info("Pause command received");
                 this.pause();
             }
 
             if (data.action === "resume") {
+                logger.info("Resume command received");
                 this.resume();
             }
 
             if (data.action === "stop") {
+                logger.info("Stop command received");
                 this.stopStream().then(() => {
-                    this.log("Stream ended successfully");
+                    logger.info("Stream ended successfully");
                     this.streamEnded();
                 })
             }
@@ -136,7 +129,7 @@ export class BBBLiveStream{
             await this.page.locator('[data-test="listenOnlyBtn"]').setTimeout(30000).click();
         }
         catch(error){
-            this.log("Could not found audio button");
+            logger.error("Failed to find listen only button");
             return false;
         }
 
@@ -149,12 +142,15 @@ export class BBBLiveStream{
             mimeType: 'video/webm;codecs=h264'
         }
 
-        this.page.on('console', (message: any) => {
-            consoleLog(message.text());
+        this.page.on('console', async (msg: any) => {
+            const args = await Promise.all(msg.args().map((itm: any) => itm.jsonValue()));
+            let result = format(...args);
+            result = result.replace(/clientLogger: /, '');
+            consoleLog(result);
         });
 
         const consoleLog = (msg: string) => {
-            this.log("CONSOLE: "+msg, 'debug');
+            logger.debug("Browser console: "+msg);
         };
 
         // Add constant motion element to create constant motion in the browser
@@ -200,7 +196,7 @@ export class BBBLiveStream{
             return;
         try{
             await this.page.waitForSelector('[data-test="meetingEndedModal"]');
-            this.log("Meeting ended or user removed");
+            logger.info("Meeting ended or user removed");
             this.stopStream().then(() => {
                 this.streamEnded();
             });
@@ -212,7 +208,7 @@ export class BBBLiveStream{
 
     pause(){
         this.updateProgress("paused");
-        this.log("Pause image "+this.pauseImageUrl);
+        logger.debug("Pause image "+this.pauseImageUrl);
         this.page.evaluate((pauseImageUrl: string) => {
             // If no overlay exists, add new overlay
             if(!document.getElementById('block-overlay')){
@@ -239,7 +235,7 @@ export class BBBLiveStream{
     }
 
     async startStream(){
-        this.log('Processing job '+ this.job.id);
+        logger.info('Starting job '+ this.job.id);
 
         this.handleRedisMessages();
 
@@ -250,29 +246,22 @@ export class BBBLiveStream{
             try {
                 // Start streaming
                 await this.updateProgress("starting");
-                this.log('Starting streaming');
+
+                logger.info('Starting streaming');
 
                 const openMeeting = await this.openBBBMeeting();
                 if(openMeeting === false){
                     throw new UnrecoverableError('Failed to join meeting');
                 }
-
-                await this.updateProgress("running");
-                this.log('Started streaming');
     
                 this.rtmpStream = this.streamToRtmp();
-
-                await this.updateProgress("running");
-
                 this.bbbStream.stream.pipe(this.rtmpStream.stdin);
 
+                logger.info('Started streaming');
+                await this.updateProgress("running");
 
             } catch (error) {
-                this.log('Error during streaming: '+JSON.stringify(error),'error');
-                // @ts-ignore
-                this.log('Error during streaming: '+JSON.stringify(error?.message),'error');
-                // @ts-ignore
-                this.log('Error during streaming: '+JSON.stringify(error?.stack),'error');
+                logger.error(error);
 
                 this.stopStream().then(() => {
                     if(error instanceof UnrecoverableError)
@@ -291,7 +280,7 @@ export class BBBLiveStream{
             return;
         this.closing = true;
 
-        this.log('Stopping streaming');
+        logger.info('Stopping streaming');
         
 
         await this.redis.quit();
@@ -300,26 +289,27 @@ export class BBBLiveStream{
         
         try{
             await this.page.close();
-            this.log("Page closed");
+            logger.info("Page closed");
         }
         catch(error){
-            this.log('Error closing page:'+JSON.stringify(error),'error');
+            logger.error({ error }, 'Error closing page');
         }
 
         try{
             this.bbbStream.stream.destroy();
-            this.log("Stream stopped");
+            logger.info("Stream stopped");
         }
         catch(error){
-            this.log('Error stopping stream: '+JSON.stringify(error),'error');
+            logger.error({ error }, 'Error stopping stream');
+
         }
 
         try{
             await this.browser.close();
-            this.log("Browser closed");
+            logger.info("Browser closed");
         }
         catch(error){
-            this.log("Error closing browser:" +JSON.stringify(error),'error');
+            logger.error({ error }, 'Error closing browser');
             
             if (this.browser && this.browser.process() != null){
                 this.browser.process().kill('SIGKILL');
@@ -328,10 +318,10 @@ export class BBBLiveStream{
 
         try{
             this.rtmpStream.kill('SIGKILL');
-            this.log("FFmpeg stopped");
+            logger.info("FFmpeg closed");
         }
         catch(error){
-            this.log('Error killing FFmpeg:'+JSON.stringify(error),'error');
+            logger.error({ error }, 'Error closing FFmpeg');
         }
 
         
@@ -384,15 +374,25 @@ export class BBBLiveStream{
         detached: true
     });
 
-    ffmpeg.on('close', (code, signal) => {
-        this.log('ERROR FFmpeg child process closed, code ' + code + ', signal ' + signal);
-            
+    ffmpeg.on('close', (code) => {
+        logger.error({ code }, 'FFmpeg child process closed');
+        handleFFmpegError(new Error("FFmpeg child process closed, code " + code));
+    });
+
+    const handleFFmpegError = (error: any) => {
         if(!this.closing){
             this.stopStream().then(() => {
-                throw new Error('FFmpeg closed, code ' + code + ', signal ' + signal);
+                switch(this.ffmpegError){
+                    case 'Input/output error':
+                        throw new UnrecoverableError('Input/output error');
+                    case 'Connection timed out':
+                        throw new Error('Connection timed out');
+                    default:
+                        throw new Error(error);
+                }
             })
         }
-    });
+    }
 
 
     const regex = new RegExp('frame=\\s*(?<nframe>[0-9]+)\\s+fps=\\s*(?<nfps>[0-9\\.]+)\\s+q=(?<nq>[0-9\\.-]+)\\s+(L?)\\s*size=\\s*(?<nsize>[0-9]+)(?<ssize>kB|mB|b)?\\s*time=\\s*(?<sduration>[0-9\\:\\.]+)\\s*bitrate=\\s*(?<nbitrate>[0-9\\.]+)(?<sbitrate>bits\\\/s|mbits\\\/s|kbits\\\/s)?.*(dup=(?<ndup>\\d+)\\s*)?(drop=(?<ndrop>\\d+)\\s*)?speed=\\s*(?<nspeed>[0-9\\.]+)x', '')
@@ -402,20 +402,33 @@ export class BBBLiveStream{
 
     let fpsArray: Array<number> = [];
     let bitrateArray: Array<number> = [];
+    let speedArray: Array<number> = [];
     let interation = 0;
+
+    ffmpeg.stdin.on('error', (error) => {
+        logger.error({error}, 'FFmpeg STDIN error');
+        handleFFmpegError(error);
+    });
+
 
     ffmpeg.stderr.on('data', (data) => {
         const m = regex.exec(
             data.toString()
         );
 
-        if(m !== null ){
-            let { nfps, nbitrate, sbitrate, sduration } =  m.groups;
 
-            this.log('['+sduration+'] FPS: '+nfps+' Bitrate: '+nbitrate+sbitrate, 'debug');
+        if(m !== null ){
+            let { nfps, nbitrate, sbitrate, nspeed} =  m.groups;
+
+            logger.debug({
+                fps: nfps,
+                bitrate: nbitrate+sbitrate,
+                speed: nspeed
+            }, 'FFmpeg metrics');
 
             let bitrate = parseFloat(nbitrate);
             let fps = parseFloat(nfps);
+            let speed = parseFloat(nspeed);
 
             if(sbitrate == "bits/s")
                 bitrate/=1000;
@@ -432,6 +445,9 @@ export class BBBLiveStream{
             bitrateArray.unshift(bitrate);
             bitrateArray = bitrateArray.slice(0,ffmpegMetricsAvgLength);
 
+            speedArray.unshift(speed);
+            speedArray = speedArray.slice(0,ffmpegMetricsAvgLength);
+
             interation++;
 
             if(interation == ffmpegMetricsInterval){
@@ -439,20 +455,42 @@ export class BBBLiveStream{
 
                 const fpsAvg = Math.round(average(fpsArray));
                 const bitrateAvg = Math.round(average(bitrateArray));
+                const speedAvg = Math.round(average(speedArray)*100)/100;
 
-                this.log('AVG: FPS: '+fpsAvg+' Bitrate: '+bitrateAvg+sbitrate, 'debug');
 
-                if(this.status == 'running')
+                if(speedAvg < 0.9){
+                    logger.warn('FFmpeg is overloaded, cannot keep up with encoding, speed: '+speedAvg);
+                }
+
+                logger.debug({
+                    fps: fpsAvg,
+                    bitrate: bitrateAvg,
+                    speed: speedAvg
+                }, 'FFmpeg AVG metrics');
+
+                if(this.status == 'running' || this.status == 'paused')
                     this.updateProgress(this.status, fpsAvg, bitrateAvg);
             }
         }
         else{
-            this.log('FFmpeg:'+ data.toString(), 'debug');
+            // Remove all line breaks
+            const ffmpegMessage = data.toString().replace(/(\r\n|\n|\r)/gm, "");
+
+            if(ffmpegMessage.includes('Input/output error')){
+                this.ffmpegError = 'Input/output error';
+                logger.error('FFmpeg input/output error: '+ffmpegMessage);
+            } 
+            else if(ffmpegMessage.includes('Connection timed out')){
+                this.ffmpegError = 'Connection timed out';
+                logger.error('FFmpeg connection timed out: '+ffmpegMessage);
+            }
+            else
+                logger.debug('FFmpeg: '+ffmpegMessage);
         }
     });
 
     ffmpeg.stdout.on('data', (data) => {
-        this.log('FFmpeg STDOUT:'+ data.toString());
+        logger.info('FFmpeg STDOUT:'+ data.toString());
     })
 
 

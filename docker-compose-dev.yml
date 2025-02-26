@@ -4,6 +4,11 @@ services:
       context: src/worker
     environment:
       - NODE_DEBUG=bull
+      - FFMPEG_BITRATE=10
+      - FFMPEG_CRF=23
+      - DEBUG=true
+      - JSON_LOGS=false
+      - LOG_LEVEL=debug
     volumes:
       - ./src/worker:/home/streaming
     depends_on:
@@ -11,15 +16,20 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4G
   controller:
     build:
       context: src/controller
     environment:
       - NODE_DEBUG=bull
+      - FAILED_JOB_ATTEMPTS=1
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
     volumes:
-        - ./src/controller:/home/streaming
+      - ./src/controller:/home/streaming
     depends_on:
       - redis
   redis:
