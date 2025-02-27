@@ -22,6 +22,16 @@ This project consists of two main components:
 - Linux server (e.g., Ubuntu)
 - Docker Compose
 
+#### Resource Requirements
+It is recommended that each worker has sufficient resources to spawn a browser to join the BBB meeting, and to encode and send a livestream video to the RTMP endpoint.
+
+Recommendations (per livestream)
+- CPUs: 2x
+- Memory: 2 GB
+- Bandwidth: at least 10Mbit/s upstream
+
+The CPU, memory and bandwidth requirements also depend on the resource consumption of the BBB meeting and are therefore basically independent of streaming. With these requirements, it is possible, for example, to play movies in Full HD (approx. 30 FPS) smoothly via the video player in BBB.
+
 ### Installation
 
 1. Create a new directory and place the `docker-compose.yml` file in it.
@@ -41,6 +51,30 @@ This project consists of two main components:
   - Secure the connection with SSL/TLS.
   - Implement authentication (e.g., Basic Auth).
 
+## Environment Variables
+
+### Controller Container
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `REDIS_HOST` | string | `redis` | Redis host address. |
+| `REDIS_PORT` | int | `6379` | Redis port number. |
+| `FAILED_JOB_ATTEMPTS` | int | `3` | Number of automatic retries if a streaming job fails. |
+| `KEEP_COMPLETED_JOBS_DURATION` | int | `3600` | Time (in seconds) to retain completed jobs before removal. After this, API calls to the job ID may return `404`. |
+| `KEEP_FAILED_JOBS_DURATION` | int | `3600` | Time (in seconds) to retain failed jobs before removal. After this, API calls to the job ID may return `404`. |
+
+### Worker Container
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `REDIS_HOST` | string | `redis` | Redis host address. |
+| `REDIS_PORT` | int | `6379` | Redis port number. |
+| `CONCURRENCY` | int | `1` | Maximum number of parallel streaming jobs. |
+| `FFMPEG_BITRATE` | int | `10` | Target bitrate (Mbps) for the output video stream. |
+| `FFMPEG_CRF` | int | `23` | Video quality setting (lower is better; `18` is visually lossless, see FFmpeg docs). |
+| `FFMPEG_METRICS_INTVL` | int | `5` | Interval (in seconds) for publishing FFmpeg metrics. |
+| `FFMPEG_METRICS_AVG_LEN` | int | `10` | Length of the moving average filter for FFmpeg metrics. |
+| `JSON_LOGS` | boolean | `true` | Enable logging in JSON format. |
+
+
 ## API Documentation
 
 The Controller exposes the following API endpoints:
@@ -54,4 +88,3 @@ The Controller exposes the following API endpoints:
 - `POST /{jobId}/resume` – Resume a paused stream.
 
 For more details, refer to the [API Documentation](https://thm-health.github.io/BBB-Streaming-Server/).
-

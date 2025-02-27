@@ -17,7 +17,6 @@ const jsonLogs = getenv.bool('JSON_LOGS', true);
 
 const width = 1920;
 const height = 1080;
-const constantMotionElementHeight = 2;
 
     const logger = pino({
         level: process.env.LOG_LEVEL || 'info',
@@ -107,7 +106,7 @@ export class BBBLiveStream{
     async openBBBMeeting(){
         const options = {
             executablePath: "/usr/bin/google-chrome",
-            defaultViewport: { width, height:height+constantMotionElementHeight },
+            defaultViewport: { width, height:height },
             args: [
                 '--no-zygote',
                 '--no-sandbox',
@@ -136,8 +135,18 @@ export class BBBLiveStream{
         const bbbStreamOptions: getStreamOptions = {
             audio: true,
             video: true,
+            videoConstraints: {
+                mandatory: {
+                    maxWidth: width,
+                    maxHeight: height,
+                    minWidth: width,
+                    minHeight: height,
+                    minFrameRate: 30,
+                    maxFrameRate: 30,
+                }
+            },
             audioBitsPerSecond: 160000,
-            videoBitsPerSecond: 2500000,
+            videoBitsPerSecond: 10000000,
             frameSize: 1000,
             mimeType: 'video/webm;codecs=h264'
         }
@@ -152,37 +161,6 @@ export class BBBLiveStream{
         const consoleLog = (msg: string) => {
             logger.debug("Browser console: "+msg);
         };
-
-        // Add constant motion element to create constant motion in the browser
-        this.page.evaluate((constantMotionElementHeight: number) => {
-            var styles = `
-
-            .constant-motion {
-                background-image: repeating-linear-gradient(90deg, #000, #000 50%, #FFF 50%, #FFF);
-                background-position-x: left;
-                background-position-y: center;
-                background-size: 1% 100%;
-                animation: l1 10s infinite linear;
-            }
-            @keyframes l1 {
-                100% {background-position: right}
-            }
-            `
-
-            var styleSheet = document.createElement("style");
-            styleSheet.textContent = styles;
-            document.head.appendChild(styleSheet);
-
-            const constantMotionWrapper = document.createElement('div');
-            constantMotionWrapper.setAttribute("style",'position: fixed; top: 0; left: 0; right: 0; z-index: 100005; background: #FFF;');
-
-            const constantMotionElement = document.createElement('div');
-            constantMotionElement.setAttribute("style",'height: '+constantMotionElementHeight+'px; width: 100%;');
-            constantMotionElement.setAttribute("class", "constant-motion");
-            
-            constantMotionWrapper.appendChild(constantMotionElement);
-            document.body.appendChild(constantMotionWrapper);
-        }, constantMotionElementHeight);
 
         this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
 
@@ -348,9 +326,9 @@ export class BBBLiveStream{
 
         "-b:v", ffmpegBitrate+"M",
         "-maxrate", ffmpegBitrate+"M",
-        '-bufsize', (ffmpegBitrate*2)+"M",
+        '-bufsize', (ffmpegBitrate)+"M",
 
-        "-vf", "fps=fps=30, crop="+width+":"+height+":0:"+constantMotionElementHeight,
+        //"-vf", "fps=fps=30",
 
         '-r', '30',
         '-g', '60',
