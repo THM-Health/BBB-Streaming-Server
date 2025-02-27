@@ -1,10 +1,14 @@
 import Redis from 'ioredis';
 import { Worker, Job } from 'bullmq';
 import * as path from "node:path";
-import axios from 'axios';
-const redisHost: string = process.env.REDIS_HOST || 'redis';
-const redisPort: number = Number(process.env.REDIS_PORT) || 6379;
-const concurrency: number = Number(process.env.CONCURRENCY) || 1;
+import getenv from 'getenv';
+
+const redisHost = getenv('REDIS_HOST', 'redis');
+const redisPort = getenv.int('REDIS_PORT', 6379);
+const concurrency = getenv.int('CONCURRENCY', 1);
+const containerID = getenv('HOSTNAME');
+
+console.log('Container ID: '+containerID);
 
 // Create a Redis client
 const redis = new Redis({
@@ -17,8 +21,8 @@ const redis = new Redis({
 const processorFile = path.join(__dirname, 'sandbox.js');
 const worker = new Worker('streams', processorFile,
   { connection: redis,
-    removeOnComplete: { count: 0 },
-    concurrency: concurrency
+    concurrency: concurrency,
+    name: containerID
   });
 
 worker.on("error", (error) => {
@@ -29,12 +33,11 @@ worker.on("active", (job, prev) => {
 });
 worker.on("completed", (job: Job, returnValue: any) => {
   console.log(`Job ${job.id} completed`);
-  sendStatusToWebhook(job, 'stopped');
-  //job.remove();
+  job.updateProgress({status: 'stopped', fps: null, bitrate: null});
 });
 worker.on("failed", (job: Job | undefined, error: Error) => {
   console.error(`Job ${job?.id} failed with error: ${error}`);
-  sendStatusToWebhook(job, 'failed');
+  job.updateProgress({status: 'failed', fps: null, bitrate: null});
 });
 worker.on("progress", (job: Job, progress: number | object) => {
  
@@ -46,35 +49,19 @@ worker.on("progress", (job: Job, progress: number | object) => {
   const bitrate: number = progress.bitrate;
 
   console.log(`Job ${job.id} is ${status}`);
-
-  sendStatusToWebhook(job, status, fps, bitrate);
+});
+worker.on("closing", () => {
+  console.log('Waiting for all jobs to finish');
+});
+worker.on("closed", () => {
+  console.log('All jobs finished');
+  process.exit(0);
 });
 
-function sendStatusToWebhook(job: Job, status: string = null, fps: number = null, bitrate: number = null){
-  if(!job.data.webhookUrl)
-    return;
-
-    
-
-    const data = {
-      job: job.id,
-      status,
-      fps,
-      bitrate
-    };
-
-    console.log(job.data.webhookUrl+" "+JSON.stringify(data));
-
-    //const webhookUrl = "https://httpdump.app/dumps/9e0407e3-2982-4bb0-88da-985be680ce7e";//job.data.webhookUrl;
-    const webhookUrl = job.data.webhookUrl;
-
-    axios.post(webhookUrl, data ).catch((error) => {
-      console.log(error);
-      if (error.response) {
-        console.error('Webhook for '+job.id+' status '+status+' failed with status code '+error.response.status);
-      }
-      else{
-        console.error('Webhook for '+job.id+' status '+status+' failed', error.code);
-      }
-  });
+async function gracefulShutdown() {
+  console.log('Shutting down gracefully...');
+  await worker.close();
 }
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

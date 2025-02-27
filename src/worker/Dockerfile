@@ -34,4 +34,4 @@ RUN npm install
 RUN npm run build
 
 ENTRYPOINT ["tini", "--"]
-CMD ["npm", "run", "start"]
+CMD ["node_modules/.bin/ts-node", "app.ts"]
