@@ -9,6 +9,10 @@ import { format }from 'node:util';
 
 const redisHost = getenv('REDIS_HOST', 'redis');
 const redisPort = getenv.int('REDIS_PORT', 6379);
+const redisDB = getenv.int('REDIS_DB', 0);
+const redisPassword = getenv('REDIS_PASSWORD', '');
+const redisUsername = getenv('REDIS_USERNAME', '');
+const redisTLS = getenv.bool('REDIS_TLS', false);
 const ffmpegMetricsInterval = getenv.int('FFMPEG_METRICS_INTVL', 5);
 const ffmpegMetricsAvgLength = getenv.int('FFMPEG_METRICS_AVG_LEN', 10);
 const ffmpegCRF = getenv.int('FFMPEG_CRF', 23).toString();
@@ -58,8 +62,12 @@ export class BBBLiveStream{
         this.rtmpUrl = job.data.rtmpUrl;
     
         this.redis = new Redis({
+            tls: redisTLS ? {} : undefined,
             port: redisPort,
             host: redisHost,
+            db: redisDB,
+            password: redisPassword,
+            username: redisUsername,
             maxRetriesPerRequest: null
         });
     }
@@ -147,7 +155,7 @@ export class BBBLiveStream{
             },
             audioBitsPerSecond: 160000,
             videoBitsPerSecond: 10000000,
-            frameSize: 1000,
+            frameSize: 0,
             mimeType: 'video/webm;codecs=h264'
         }
 
@@ -313,7 +321,6 @@ export class BBBLiveStream{
 
         "-thread_queue_size", "4096",
 
-        '-re',
         '-i', '-',
 
         "-crf", ffmpegCRF, 
@@ -328,7 +335,7 @@ export class BBBLiveStream{
         "-maxrate", ffmpegBitrate+"M",
         '-bufsize', (ffmpegBitrate)+"M",
 
-        //"-vf", "fps=fps=30",
+        "-vf", "fps=fps=30",
 
         '-r', '30',
         '-g', '60',

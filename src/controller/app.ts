@@ -5,22 +5,31 @@ import {Queue} from "bullmq";
 import { checkSchema, validationResult, matchedData } from 'express-validator';
 import { createHash } from 'crypto';
 import { URL } from 'node:url';
+import getenv from 'getenv';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const redisHost: string = process.env.REDIS_HOST || 'redis';
-const redisPort: number = Number(process.env.REDIS_PORT) || 6379;
-const failedJobAttempts: number = Number(process.env.FAILED_JOB_ATTEMPTS) || 3;
-const keepCompletedJobsDuration: number = Number(process.env.KEEP_COMPLETED_JOBS_DURATION) || 60*60;
-const keepFailedJobsDuration: number = Number(process.env.KEEP_FAILED_JOBS_DURATION) || 60*60;
+const redisHost = getenv('REDIS_HOST', 'redis');
+const redisPort = getenv.int('REDIS_PORT', 6379);
+const redisDB = getenv.int('REDIS_DB', 0);
+const redisPassword = getenv('REDIS_PASSWORD', '');
+const redisUsername = getenv('REDIS_USERNAME', '');
+const redisTLS = getenv.bool('REDIS_TLS', false);
+const failedJobAttempts = getenv.int('FAILED_JOB_ATTEMPTS', 3);
+const keepCompletedJobsDuration = getenv.int('KEEP_COMPLETED_JOBS_DURATION', 60*60);
+const keepFailedJobsDuration = getenv.int('KEEP_FAILED_JOBS_DURATION', 60*60);
 
 app.use(express.json());
 
 // Create a Redis client
 const redis = new Redis({
+    tls: redisTLS ? {} : undefined,
     port: redisPort,
     host: redisHost,
+    db: redisDB,
+    password: redisPassword,
+    username: redisUsername,
     maxRetriesPerRequest: null
 });
 
@@ -32,7 +41,7 @@ app.get('/health', async (req, res) => {
         const redisPing = await redis.ping();
 
         // Determine the number of workers
-       const workerCount = await streamQueue.getWorkersCount();
+        const workerCount = await streamQueue.getWorkersCount();
 
         const waitingCount = await streamQueue.getWaitingCount();
         const runningCount = await streamQueue.getActiveCount();
@@ -48,7 +57,7 @@ app.get('/health', async (req, res) => {
         res.status(200).json({
             workerCount,
             waitingCount,
-            runningCount
+            runningCount,
         });
     } catch (error: any) {
         res.status(500).json({
@@ -158,10 +167,10 @@ app.post('/', checkSchema(createSchema, ['body']), async (req: Request, res: Res
         }
 
         job = await streamQueue.add(
-        'meeting',
-        jobData,
-        {
-            jobId: jobId,
+            'meeting',
+            jobData,
+            {
+                jobId: jobId,
                 attempts: failedJobAttempts,
                 removeOnComplete: {
                     age: keepCompletedJobsDuration
@@ -169,8 +178,8 @@ app.post('/', checkSchema(createSchema, ['body']), async (req: Request, res: Res
                 removeOnFail: {
                     age: keepFailedJobsDuration
                 },
-        }
-    );
+            }
+        );
     }
 
     

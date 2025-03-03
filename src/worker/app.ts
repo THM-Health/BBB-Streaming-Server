@@ -5,15 +5,24 @@ import getenv from 'getenv';
 
 const redisHost = getenv('REDIS_HOST', 'redis');
 const redisPort = getenv.int('REDIS_PORT', 6379);
+const redisDB = getenv.int('REDIS_DB', 0);
+const redisPassword = getenv('REDIS_PASSWORD', '');
+const redisUsername = getenv('REDIS_USERNAME', '');
+const redisTLS = getenv.bool('REDIS_TLS', false);
 const concurrency = getenv.int('CONCURRENCY', 1);
 const containerID = getenv('HOSTNAME');
+const closeOnFinish = getenv.bool('CLOSE_ON_FINISH', false);
 
 console.log('Container ID: '+containerID);
 
 // Create a Redis client
 const redis = new Redis({
+    tls: redisTLS ? {} : undefined,
     port: redisPort,
     host: redisHost,
+    db: redisDB,
+    password: redisPassword,
+    username: redisUsername,
     maxRetriesPerRequest: null
 });
 
@@ -32,6 +41,9 @@ worker.on("active", (job, prev) => {
   console.log(`Job ${job.id} active from ${prev}`);
 });
 worker.on("completed", (job: Job, returnValue: any) => {
+  if(closeOnFinish){
+    worker.close();
+  }
   console.log(`Job ${job.id} completed`);
   job.updateProgress({status: 'stopped', fps: null, bitrate: null});
 });
