@@ -23,7 +23,7 @@
   "dependencies": {
     "bullmq": "^5.41.7",
     "getenv": "^1.0.0",
-    "ioredis": "^5.4.1",
+    "ioredis": "^5.5.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
     "puppeteer-core": "^23.4.1",
