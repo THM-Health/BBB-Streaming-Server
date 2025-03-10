@@ -216,8 +216,22 @@ app.post('/:jobId/stop', async (req, res) => {
         return;
     }
 
+    if(await job.isWaiting()){
+        try{
+            const id = job.id;
+            await job.remove();
+            res.status(202).json({
+                id,
+                progress: {status: "stopped", fps: 0, bitrate: 0},
+            });
+            return;
+        }
+        catch(error){
+            console.error(error);
+        }
+    }
     // @ts-ignore
-    if(job.progress?.status !== "running" && job.progress?.status !== "paused" ){
+    if(! (job.progress?.status == "running" || job.progress?.status== "paused" || job.progress?.status == "resuming" || job.progress?.status == "pausing")){
         // @ts-ignore
         res.status(400).json({
             id: job.id,
