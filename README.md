@@ -49,7 +49,6 @@ By default, this project runs in 'worker mode.' A setup consists of multiple lon
 
 - By default, the API listens on `127.0.0.1:3000`. This can be modified in `docker-compose.yml`.
 - The system sending API requests (e.g., a BBB frontend) must be able to reach the API.
-- The API must be able to reach the server specified as the callback in each job creation request.
 - It is recommended to avoid directly exposing the API. Instead, use a reverse proxy to:
   - Secure the connection with SSL/TLS.
   - Implement authentication (e.g., Basic Auth).
@@ -102,7 +101,7 @@ The Controller exposes the following API endpoints:
 For more details, refer to the [API Documentation](https://thm-health.github.io/BBB-Streaming-Server/).
 
 ## Job mode
-As an alternative to the 'worker mode' you can spawn 'worker' containers on demand depending on the length of the queue. The queue length can be fetched from the `/health` endpoint of the controller. You can also inspect the queue length of the redis list `bull:streams:wait`. 
+As an alternative to the 'worker mode' you can spawn 'worker' containers on demand depending on the length of the queue. The queue length can be fetched from the `/health` and `/metrics` endpoint of the controller. You can also inspect the queue length of the redis list `bull:streams:wait`. 
 
 For such a setup you should set the `CLOSE_ON_FINISH=true` and `CONCURRENCY=1` on the worker container, so that each spawned container only handles a single job.
 

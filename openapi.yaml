@@ -35,9 +35,6 @@ paths:
                 rtmpUrl:
                   type: string
                   description: RTMP target URL for the stream.
-                webhookUrl:
-                  type: string
-                  description: (Optional) URL for sending updates.
               required:
                 - joinUrl
                 - rtmpUrl
@@ -47,12 +44,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  progress:
-                    type: object
+                $ref: "#/components/schemas/StreamingJob"
         '422':
           description: Validation error
           content:
@@ -91,12 +83,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  progress:
-                    type: object
+                $ref: "#/components/schemas/StreamingJob"
         '404':
           description: Job not found
   /{jobId}/stop:
@@ -114,10 +101,19 @@ paths:
       responses:
         '202':
           description: Stop command accepted
-        '404':
-          description: No stream associated with this job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingJob"
         '400':
           description: Invalid status for stop request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingJob"
+        '404':
+          description: No stream associated with this job
+              
   /{jobId}/pause:
     post:
       summary: Pause a running stream
@@ -133,10 +129,18 @@ paths:
       responses:
         '202':
           description: Pause request accepted
-        '404':
-          description: Stream not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingJob"
         '400':
           description: Invalid status for pause request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingJob"
+        '404':
+          description: Stream not found
   /{jobId}/resume:
     post:
       summary: Resume a paused stream
@@ -152,10 +156,18 @@ paths:
       responses:
         '202':
           description: Resume request accepted
-        '404':
-          description: Stream not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingJob"
         '400':
           description: Invalid status for resume request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingJob"
+        '404':
+          description: Stream not found  
   /health:
     get:
       summary: Health check
@@ -231,3 +243,38 @@ paths:
             text/plain:
               schema:
                 type: string
+
+components:
+  schemas:
+    StreamingJob:
+      type: object
+      properties:
+        id:
+          type: string
+        progress:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - queued
+                - starting
+                - running
+                - pausing
+                - paused
+                - resuming
+                - stopping
+                - stopped
+                - failed
+              description: Current status of the streaming job.
+              example: running
+            fps:
+              type: number
+              nullable: true
+              description: Current frames per second of the stream.
+              example: 30
+            bitrate:
+              type: number
+              nullable: true
+              description: Current bitrate of the stream.
+              example: 4500
