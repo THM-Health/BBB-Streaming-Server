@@ -21,7 +21,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "bullmq": "^5.41.7",
+    "bullmq": "^5.41.8",
     "express": "^4.21.1",
     "express-validator": "^7.2.0",
     "getenv": "^1.0.0",
