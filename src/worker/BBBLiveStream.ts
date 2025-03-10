@@ -333,7 +333,7 @@ export class BBBLiveStream{
 
         "-b:v", ffmpegBitrate+"M",
         "-maxrate", ffmpegBitrate+"M",
-        '-bufsize', (ffmpegBitrate)+"M",
+        '-bufsize', ffmpegBitrate+"M",
 
         "-vf", "fps=fps=30",
 
