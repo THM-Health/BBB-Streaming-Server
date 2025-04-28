@@ -35,7 +35,7 @@ jobs:
           images: pilos/bbb-streaming-server
           flavor: |
             latest=auto
-            prefix=worker
+            prefix=worker-
             suffix=
           tags: |
             type=semver,pattern={{version}}
@@ -79,7 +79,7 @@ jobs:
           images: pilos/bbb-streaming-server
           flavor: |
             latest=auto
-            prefix=controller
+            prefix=controller-
             suffix=
           tags: |
             type=semver,pattern={{version}}
