@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, JobProgress } from 'bullmq';
 import * as path from "node:path";
 import getenv from 'getenv';
 
@@ -51,14 +51,10 @@ worker.on("failed", (job: Job | undefined, error: Error) => {
   console.error(`Job ${job?.id} failed with error: ${error}`);
   job.updateProgress({status: 'failed', fps: null, bitrate: null});
 });
-worker.on("progress", (job: Job, progress: number | object) => {
+worker.on("progress", (job: Job, progress: JobProgress) => {
  
   // @ts-ignore
   const status: string = progress.status;
-  // @ts-ignore
-  const fps: number = progress.fps;
-  // @ts-ignore
-  const bitrate: number = progress.bitrate;
 
   console.log(`Job ${job.id} is ${status}`);
 });
