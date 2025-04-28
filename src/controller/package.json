@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/express": "^4.17.21",
+    "@types/express": "^5.0.1",
     "@types/getenv": "^1.0.3",
     "@types/ioredis": "^5.0.0",
     "@types/node": "^22.15.3",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "bullmq": "^5.51.1",
-    "express": "^4.21.1",
+    "express": "^5.1.0",
     "express-validator": "^7.2.0",
     "getenv": "^1.0.0",
     "ioredis": "^5.6.0",

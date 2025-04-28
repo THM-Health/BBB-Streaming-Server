@@ -156,12 +156,12 @@ app.post('/', checkSchema(createSchema, ['body']), async (req: Request, res: Res
 
     let job = await streamQueue.getJob(jobId);
 
-    if(job !== undefined && await job.isFailed()){
+    if(job !== undefined && (await job.isFailed())){
         console.log('Retrying failed job' + job.id);
         await job.retry();
     }
     else{
-        if(job !== undefined && await job.isCompleted()){
+        if(job !== undefined && (await job.isCompleted())){
             console.log('Restarting stopped job' + job.id);
             await job.remove();
         }
