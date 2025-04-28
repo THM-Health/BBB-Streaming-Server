@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "bullmq": "^5.41.8",
-    "express": "^4.21.1",
+    "express": "^5.1.0",
     "express-validator": "^7.2.0",
     "getenv": "^1.0.0",
     "ioredis": "^5.6.0",
