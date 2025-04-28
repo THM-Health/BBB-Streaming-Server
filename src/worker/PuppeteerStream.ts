@@ -34,9 +34,7 @@ import {
 	launch as puppeteerLaunch,
 	LaunchOptions,
 	Browser,
-	Page,
-	BrowserLaunchArgumentOptions,
-	BrowserConnectOptions,
+	Page
 } from "puppeteer-core";
 import * as path from "path";
 import { PassThrough } from "stream";
@@ -45,9 +43,7 @@ import { IncomingMessage } from "http";
 import { BrowserMimeType } from './extension/options';
 
 const extensionId = "jjndjgheafjngoipoacpjgeicjeomjli";
-type StreamLaunchOptions = LaunchOptions &
-	BrowserLaunchArgumentOptions &
-	BrowserConnectOptions & {
+type StreamLaunchOptions = LaunchOptions & {
 		allowIncognito?: boolean;
 	} & {
 		closeDelay?: number;

@@ -1,5 +1,4 @@
-import express from 'express';
-import { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import Redis from 'ioredis';
 import {Queue} from "bullmq";
 import { checkSchema, validationResult, matchedData } from 'express-validator';
@@ -35,7 +34,7 @@ const redis = new Redis({
 
 const streamQueue = new Queue('streams', { connection: redis });
 
-app.get('/health', async (req, res) => {
+app.get('/health', async (req: Request, res: Response) => {
     try {
         // Check Redis connection
         const redisPing = await redis.ping();
@@ -47,11 +46,12 @@ app.get('/health', async (req, res) => {
         const runningCount = await streamQueue.getActiveCount();
 
         if (redisPing !== 'PONG' || workerCount < 1) {
-            return res.status(503).json({
+            res.status(503).json({
                 workerCount,
                 waitingCount,
                 runningCount,
             });
+            return;
         }
 
         res.status(200).json({
@@ -66,7 +66,7 @@ app.get('/health', async (req, res) => {
     }
 });
 
-app.get('/metrics', async (req, res) => {
+app.get('/metrics', async (req: Request, res: Response) => {
     try {
         const metrics = await streamQueue.exportPrometheusMetrics();
         res.set('Content-Type', 'text/plain');
