@@ -235,7 +235,6 @@ export class BBBLiveStream{
             const result = await this.page.evaluate((object: string) => {
                 return eval(object);
             }, object);
-            console.log("Object", object, "result", result);
             if (result !== undefined) {
                 return result;
             }
