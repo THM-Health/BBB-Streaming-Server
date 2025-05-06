@@ -21,7 +21,6 @@ jobs:
         with:
           context: src/worker
           cache-from: type=registry,ref=pilos/bbb-streaming-server:worker-buildcache
-          cache-to: type=registry,ref=pilos/bbb-streaming-server:worker-buildcache,mode=max
 
   build-controller-image:
     runs-on: ubuntu-latest
@@ -41,4 +40,3 @@ jobs:
         with:
           context: src/controller
           cache-from: type=registry,ref=pilos/bbb-streaming-server:controller-buildcache
-          cache-to: type=registry,ref=pilos/bbb-streaming-server:controller-buildcache,mode=max
