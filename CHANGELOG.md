@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Audio join flow for BBB 3.0 servers with listenOnlyMode=false ([#107])
+- Audio join flow for BBB 3.0 servers with listenOnlyMode=false and livekit ([#107], [#113])
 
 ## [v1.0.0] - 2025-04-28
 
@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Readme + OpenAPI
 
 [#107]: https://github.com/THM-Health/BBB-Streaming-Server/pull/107
+[#113]: https://github.com/THM-Health/BBB-Streaming-Server/pull/113
 
 
 [unreleased]: https://github.com/THM-Health/BBB-Streaming-Server/compare/v1.0.0...main
