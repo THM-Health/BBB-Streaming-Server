@@ -132,38 +132,8 @@ export class BBBLiveStream{
 
         await this.page.goto(this.joinUrl);
 
-    
-        // Find listen only button
-        let listenOnlyLocator = '';
-
-        const isMeteor = await this.page.evaluate(() => {
-            return eval('typeof __meteor_runtime_config__') === 'object';
-        });
-        if(isMeteor){
-            // BBB <= 2.7
-            listenOnlyLocator = '[data-test="listenOnlyBtn"]';
-        }
-        else{
-            // BBB >= 3.0
-
-            // Wait for window.meetingClientSettings to be available, wait 10 sec.
-            const clientSettings = await this.getObject('window.meetingClientSettings', 10000);
-            if(clientSettings === undefined){
-                logger.error("Failed to get window.meetingClientSettings");
-                return false;
-            }
-        
-            if(clientSettings.public.app.listenOnlyMode === true){
-                listenOnlyLocator = '[data-test="listenOnlyBtn"]';
-            }
-            else{
-                listenOnlyLocator = '[data-test="helpListenOnlyBtn"]';
-            }
-        }
-
         try{
-            // Wait for listen only button to be available, wait 30 sec.
-            await this.page.locator(listenOnlyLocator).setTimeout(30000).click();
+            await this.page.locator('[data-test="listenOnlyBtn"], [data-test="helpListenOnlyBtn"]').setTimeout(30000).click();
         }
         catch(error){
             logger.error("Failed to find listen only button");
@@ -222,28 +192,6 @@ export class BBBLiveStream{
         }
     }
 
-    /**
-     * Try to get window/document/etc. object
-     * @param object Name of the object to get, e.g. window.meetingClientSettings
-     * @param timeout Time in ms to wait for the object to be available
-     * @returns object or undefined
-     */
-    async getObject(object: string, timeout: number){
-
-        const startTime = Date.now();
-        while (Date.now() - startTime < timeout) {
-            const result = await this.page.evaluate((object: string) => {
-                return eval(object);
-            }, object);
-            if (result !== undefined) {
-                return result;
-            }
-
-            // Wait for 100ms before trying again
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        return undefined;
-    }
 
     pause(){
         this.updateProgress("paused");
