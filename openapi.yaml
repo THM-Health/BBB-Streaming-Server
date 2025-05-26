@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: BBB Livestreaming Server API
-  version: "0.0.1"
+  version: "1.0.1"
   description: API for managing livestreaming jobs for BigBlueButton meetings.
   license:
     name: LGPL 3.0
