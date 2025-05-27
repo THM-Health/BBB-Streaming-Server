@@ -1,6 +1,7 @@
 services:
   worker:
     image: pilos/bbb-streaming-server:worker-1.0
+    restart: always
     depends_on:
       redis:
         condition: service_healthy
@@ -9,6 +10,7 @@ services:
       replicas: 5
   controller:
     image: pilos/bbb-streaming-server:controller-1.0
+    restart: always
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"
     depends_on:
