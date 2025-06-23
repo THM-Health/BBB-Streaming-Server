@@ -28,12 +28,15 @@ paths:
               properties:
                 joinUrl:
                   type: string
+                  example: https://test-install.blindsidenetworks.com/bigbluebutton/api/join?avatarURL+=https%3A%2F%2Fexample.org%2Fstreaming.jpg&excludeFromDashboard=true&fullName=Livestream&meetingID=random-1453783&password=mp&redirect=true&userdata-bbb_ask_for_feedback_on_logout=true&userdata-bbb_custom_style_url=https%3A%2F%2Fexample.org%2Fbbb.css&userdata-bbb_hide_actions_bar=true&checksum=9a635c68b06a3a130f378ba1ebb62b25e54ec4bb
                   description: URL to join the meeting.
                 pauseImageUrl:
                   type: string
+                  example: https://example.org/pause.jpg
                   description: (Optional) URL of the pause image.
                 rtmpUrl:
                   type: string
+                  example: rtmp://a.rtmp.youtube.com/live2/abc-123-def-456
                   description: RTMP target URL for the stream.
               required:
                 - joinUrl
@@ -75,6 +78,7 @@ paths:
         - name: jobId
           in: path
           required: true
+          example: 90b0f04212100c01eb31f0805d8ddffb289d7345e0b9829e328329035a1a8682
           schema:
             type: string
       responses:
@@ -96,6 +100,7 @@ paths:
         - name: jobId
           in: path
           required: true
+          example: 90b0f04212100c01eb31f0805d8ddffb289d7345e0b9829e328329035a1a8682
           schema:
             type: string
       responses:
@@ -124,6 +129,7 @@ paths:
         - name: jobId
           in: path
           required: true
+          example: 90b0f04212100c01eb31f0805d8ddffb289d7345e0b9829e328329035a1a8682
           schema:
             type: string
       responses:
@@ -151,6 +157,7 @@ paths:
         - name: jobId
           in: path
           required: true
+          example: 90b0f04212100c01eb31f0805d8ddffb289d7345e0b9829e328329035a1a8682
           schema:
             type: string
       responses:
@@ -251,6 +258,7 @@ components:
       properties:
         id:
           type: string
+          example: 90b0f04212100c01eb31f0805d8ddffb289d7345e0b9829e328329035a1a8682
         progress:
           type: object
           properties:
