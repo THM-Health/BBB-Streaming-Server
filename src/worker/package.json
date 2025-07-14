@@ -13,7 +13,7 @@
     "@types/chrome": "^0.0.328",
     "@types/getenv": "^1.0.3",
     "@types/ioredis": "^5.0.0",
-    "@types/node": "^24.0.7",
+    "@types/node": "^24.0.13",
     "@types/redis": "^4.0.11",
     "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
