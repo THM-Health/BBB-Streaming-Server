@@ -133,10 +133,16 @@ export class BBBLiveStream{
         await this.page.goto(this.joinUrl);
 
         try{
-            await this.page.locator('[data-test="listenOnlyBtn"], [data-test="helpListenOnlyBtn"]').setTimeout(30000).click();
+            const selector = '[data-test="closeModal"]';
+            // Wait for modal to appear
+            await this.page.waitForSelector(selector, { timeout: 30000 });
+            logger.info("Modal appeared, waiting for it to disappear");
+            // Wait for modal to disappear
+            await this.page.waitForSelector(selector, { hidden: true, timeout: 60000 });
+            logger.info("Modal disappeared, continuing");
         }
         catch(error){
-            logger.error("Failed to find listen only button");
+            logger.error("Failed waiting for modal to show/hide", error);
             return false;
         }
 
