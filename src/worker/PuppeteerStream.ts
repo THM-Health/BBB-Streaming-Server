@@ -271,15 +271,18 @@ export async function getStream(page: Page, opts: getStreamOptions, consoleLog: 
 	if (!opts.frameSize) opts.frameSize = 20;
 	const retryPolicy = Object.assign({}, { each: 20, times: 3 }, opts.retry);
 
+	consoleLog("Getting extension page...");
 	const extension = await getExtensionPage(page.browser());
 
 	extension.on('console', (message: any) => {
 		consoleLog(message.text());
 	});
 
+	consoleLog("Acquiring lock for tab query...");
 	await lock();
 
 	await page.bringToFront();
+	consoleLog("Querying for tab...");
 	const [tab] = await extension.evaluate(
 		async (x) => {
 			// @ts-ignore
@@ -291,15 +294,21 @@ export async function getStream(page: Page, opts: getStreamOptions, consoleLog: 
 	);
 
 	unlock();
-	if (!tab) throw new Error("Cannot find tab, try providing your own tabQuery to getStream options");
+	if (!tab) {
+		consoleLog("ERROR: Cannot find tab");
+		throw new Error("Cannot find tab, try providing your own tabQuery to getStream options");
+	}
+	consoleLog(`Found tab with id: ${tab.id}`);
 
 	const stream = new PassThrough();
 	
 
 	function onConnection(ws: WebSocket, req: IncomingMessage) {
 		const url = new URL(`http://localhost:${port}${req.url}`);
+		consoleLog("WebSocket connection established");
 
 		async function close() {
+			consoleLog("Closing stream connection");
 			if (!stream.readableEnded && !stream.writableEnded) stream.end();
 			if (!extension.isClosed() && extension.browser().isConnected()) {
 				// @ts-ignore
@@ -327,13 +336,23 @@ export async function getStream(page: Page, opts: getStreamOptions, consoleLog: 
 	(await wss).on("connection", onConnection);
 
 	await page.bringToFront();
+	consoleLog("Asserting extension is loaded...");
 	await assertExtensionLoaded(extension, retryPolicy);
+	consoleLog("Extension loaded successfully");
 
-	await extension.evaluate(
-		// @ts-ignore
-		(settings) => START_RECORDING(settings),
-		{ ...opts, tabId: tab.id }
-	);
+	try {
+		consoleLog("Starting recording in browser...");
+		await extension.evaluate(
+			// @ts-ignore
+			(settings) => START_RECORDING(settings),
+			{ ...opts, tabId: tab.id }
+		);
+		consoleLog("Recording started successfully");
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		consoleLog(`[ERROR] Failed to start recording: ${errorMessage}`);
+		throw error;
+	}
 
 	const mute = () => {
 		if (!extension.isClosed() && extension.browser().isConnected()) {

@@ -170,7 +170,13 @@ export class BBBLiveStream{
             logger.debug("Browser console: "+msg);
         };
 
-        this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
+        try {
+            this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
+            logger.info("Successfully initialized stream");
+        } catch (error) {
+            logger.error({ error, options: bbbStreamOptions }, 'Failed to get stream');
+            throw error;
+        }
 
         this.waitForMeetingEnded();
 
