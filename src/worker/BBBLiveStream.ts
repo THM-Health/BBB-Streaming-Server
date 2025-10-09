@@ -18,6 +18,7 @@ const ffmpegMetricsAvgLength = getenv.int('FFMPEG_METRICS_AVG_LEN', 10);
 const ffmpegCRF = getenv.int('FFMPEG_CRF', 23).toString();
 const ffmpegBitrate = getenv.int('FFMPEG_BITRATE', 10);
 const jsonLogs = getenv.bool('JSON_LOGS', true);
+const browserConsoleLogLevel = getenv('BROWSER_CONSOLE_LOG_LEVEL', 'debug');
 
 const width = 1920;
 const height = 1080;
@@ -167,7 +168,10 @@ export class BBBLiveStream{
         });
 
         const consoleLog = (msg: string) => {
-            logger.debug("Browser console: "+msg);
+            const level = browserConsoleLogLevel.toLowerCase();
+            if (level !== 'silent' && typeof logger[level as keyof typeof logger] === 'function') {
+                (logger[level as keyof typeof logger] as any)("Browser console: " + msg);
+            }
         };
 
         this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
