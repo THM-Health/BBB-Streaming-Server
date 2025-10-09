@@ -18,6 +18,7 @@ const redisTLS = getenv.bool('REDIS_TLS', false);
 const failedJobAttempts = getenv.int('FAILED_JOB_ATTEMPTS', 3);
 const keepCompletedJobsDuration = getenv.int('KEEP_COMPLETED_JOBS_DURATION', 60*60);
 const keepFailedJobsDuration = getenv.int('KEEP_FAILED_JOBS_DURATION', 60*60);
+const minWorkerCount = getenv.int('MIN_WORKER_COUNT', 1);
 
 app.use(express.json());
 
@@ -45,7 +46,7 @@ app.get('/health', async (req: Request, res: Response) => {
         const waitingCount = await streamQueue.getWaitingCount();
         const runningCount = await streamQueue.getActiveCount();
 
-        if (redisPing !== 'PONG' || workerCount < 1) {
+        if (redisPing !== 'PONG' || workerCount < minWorkerCount) {
             res.status(503).json({
                 workerCount,
                 waitingCount,
