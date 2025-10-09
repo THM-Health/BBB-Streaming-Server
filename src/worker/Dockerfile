@@ -4,16 +4,17 @@ LABEL authors="samuelweirich"
 # Configure default locale (important for chrome-headless-shell).
 ENV LANG en_US.UTF-8
 
+ARG CHROME_VERSION="137.0.7151.103-1"
 
 # Install latest chrome dev package
 # Note: this installs the necessary libs to make the bundled version of Chrome that Puppeteer
 # installs, work.
 RUN apt-get update \
     && apt-get install -y wget gnupg \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
-        && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] https://dl-ssl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini \
+    && wget --no-verbose -O /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb \
+    && apt install -y /tmp/chrome.deb \
+    && rm /tmp/chrome.deb \
+    && apt-get install -y fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
