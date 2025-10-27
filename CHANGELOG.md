@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Controller: Option to set minimum number of workers required for the health check to pass ([#258])
 - CI: Workflow to update chrome version ([#291])
 
+### Fixed
+- Worker: End worker if a failure occur and CLOSE_ON_FINISH=true ([#265])
+
 ## [v1.1.1] - 2025-06-16
 
 ### Changed
@@ -42,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#290]: https://github.com/THM-Health/BBB-Streaming-Server/pull/290
 [#291]: https://github.com/THM-Health/BBB-Streaming-Server/pull/291
 [#258]: https://github.com/THM-Health/BBB-Streaming-Server/pull/258
+[#265]: https://github.com/THM-Health/BBB-Streaming-Server/pull/265
 
 
 [unreleased]: https://github.com/THM-Health/BBB-Streaming-Server/compare/v1.1.1...main
