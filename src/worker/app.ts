@@ -49,7 +49,13 @@ worker.on("completed", (job: Job, returnValue: any) => {
 });
 worker.on("failed", (job: Job | undefined, error: Error) => {
   console.error(`Job ${job?.id} failed with error: ${error}`);
-  job.updateProgress({status: 'failed', fps: null, bitrate: null});
+  console.error(`Error stack: ${error.stack}`);
+  if (job) {
+    job.updateProgress({status: 'failed', fps: null, bitrate: null});
+  }
+  if(closeOnFinish){
+    worker.close();
+  }
 });
 worker.on("progress", (job: Job, progress: JobProgress) => {
  
