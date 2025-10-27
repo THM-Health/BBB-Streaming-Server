@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Worker: Option to set Chrome version on build time ([#290])
 - CI: Workflow to update chrome version ([#291])
 
-
 ## [v1.1.1] - 2025-06-16
 
 ### Changed
