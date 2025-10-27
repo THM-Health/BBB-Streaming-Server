@@ -4,18 +4,17 @@ LABEL authors="samuelweirich"
 # Configure default locale (important for chrome-headless-shell).
 ENV LANG en_US.UTF-8
 
+ARG CHROME_VERSION=141.0.7390.122
 
-# Install latest chrome dev package
-# Note: this installs the necessary libs to make the bundled version of Chrome that Puppeteer
-# installs, work.
+# Install Chrome and other dependencies
 RUN apt-get update \
-    && apt-get install -y wget gnupg \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
-        && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] https://dl-ssl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini \
+    && apt-get install -y fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini \
       --no-install-recommends \
+    && npx @puppeteer/browsers install "chrome@${CHROME_VERSION}" --install-deps \
     && rm -rf /var/lib/apt/lists/*
+
+# Add symlink to make chrome available at /usr/bin/google-chrome
+RUN ln -s "/chrome/linux-${CHROME_VERSION}/chrome-linux64/chrome" /usr/bin/google-chrome
 
 RUN rm -f /etc/machine-id /var/lib/dbus/machine-id \
     && dbus-uuidgen --ensure=/etc/machine-id \
