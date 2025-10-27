@@ -84,6 +84,7 @@ By default, this project runs in 'worker mode.' A setup consists of multiple lon
 | `FFMPEG_METRICS_INTVL` | int | `5` | Interval (in seconds) for publishing FFmpeg metrics. |
 | `FFMPEG_METRICS_AVG_LEN` | int | `10` | Length of the moving average filter for FFmpeg metrics. |
 | `JSON_LOGS` | boolean | `true` | Enable logging in JSON format. |
+| `BROWSER_CONSOLE_LOG_LEVEL` | string | `debug` | Log level for browser console messages. Options: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`. |
 | `CLOSE_ON_FINISH` | boolean | `false` | Only run a single job and close afterwards |
 
 
