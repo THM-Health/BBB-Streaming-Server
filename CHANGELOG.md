@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Worker: Option to set Chrome version on build time ([#290])
+
 ## [v1.1.1] - 2025-06-16
 
 ### Changed
@@ -33,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#107]: https://github.com/THM-Health/BBB-Streaming-Server/pull/107
 [#113]: https://github.com/THM-Health/BBB-Streaming-Server/pull/113
+[#290]: https://github.com/THM-Health/BBB-Streaming-Server/pull/290
 
 
 [unreleased]: https://github.com/THM-Health/BBB-Streaming-Server/compare/v1.1.1...main
