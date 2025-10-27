@@ -67,6 +67,7 @@ By default, this project runs in 'worker mode.' A setup consists of multiple lon
 | `FAILED_JOB_ATTEMPTS` | int | `3` | Number of automatic retries if a streaming job fails. |
 | `KEEP_COMPLETED_JOBS_DURATION` | int | `3600` | Time (in seconds) to retain completed jobs before removal. After this, API calls to the job ID may return `404`. |
 | `KEEP_FAILED_JOBS_DURATION` | int | `3600` | Time (in seconds) to retain failed jobs before removal. After this, API calls to the job ID may return `404`. |
+| `MIN_WORKER_COUNT` | int | `1` | Minimum number of workers required for the health check to pass. The `/health` endpoint returns 503 if fewer workers are connected. |
 
 ### Worker Container
 | Variable | Type | Default | Description |
