@@ -160,10 +160,22 @@ export class BBBLiveStream{
         }
 
         this.page.on('console', async (msg: any) => {
-            const args = await Promise.all(msg.args().map((itm: any) => itm.jsonValue()));
-            let result = format(...args);
-            result = result.replace(/clientLogger: /, '');
-            consoleLog(result);
+            try {
+                const args = await Promise.all(msg.args().map(async (itm: any) => {
+                    try {
+                        return await itm.jsonValue();
+                    } catch (e) {
+                        // If jsonValue fails, try to get string representation
+                        return itm.toString();
+                    }
+                }));
+                let result = format(...args);
+                result = result.replace(/clientLogger: /, '');
+                consoleLog(result);
+            } catch (error) {
+                // If all else fails, just log the message text
+                consoleLog(msg.text());
+            }
         });
 
         const consoleLog = (msg: string) => {
