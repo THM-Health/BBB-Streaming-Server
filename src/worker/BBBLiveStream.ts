@@ -173,8 +173,40 @@ export class BBBLiveStream{
         this.bbbStream = await getStream(this.page, bbbStreamOptions, consoleLog);
 
         this.waitForMeetingEnded();
+        this.monitorForRedirect();
 
         return true;
+    }
+
+    async monitorForRedirect(){
+        if(this.closing)
+            return;
+        
+        try{
+            const currentUrl = this.page.url();
+            const joinUrlHost = new URL(this.joinUrl).hostname;
+            const currentUrlHost = new URL(currentUrl).hostname;
+            
+            // Check if redirected away from the meeting
+            if (currentUrlHost !== joinUrlHost || !currentUrl.includes('/html5client/')) {
+                logger.error(`Browser was redirected away from meeting. Original: ${this.joinUrl}, Current: ${currentUrl}`);
+                this.stopStream().then(() => {
+                    this.streamEnded();
+                });
+                return;
+            }
+            
+            // Check again in 5 seconds
+            await new Promise(r => setTimeout(r, 5000));
+            this.monitorForRedirect();
+        }
+        catch(error){
+            if(!this.closing){
+                logger.error("Error monitoring for redirect", error);
+                await new Promise(r => setTimeout(r, 5000));
+                this.monitorForRedirect();
+            }
+        }
     }
 
     async waitForMeetingEnded(){
