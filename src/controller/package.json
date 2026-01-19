@@ -24,7 +24,7 @@
     "express": "^5.1.0",
     "express-validator": "^7.3.0",
     "getenv": "^2.0.0",
-    "ioredis": "^5.8.2",
+    "ioredis": "^5.9.2",
     "redis": "^5.9.0"
   }
 }
