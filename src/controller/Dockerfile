@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:24-slim
 LABEL authors="samuelweirich"
 
 # Configure default locale (important for chrome-headless-shell).

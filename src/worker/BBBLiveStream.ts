@@ -2,7 +2,7 @@ import { launch, getStream, getStreamOptions } from "./PuppeteerStream";
 import {ChildProcessWithoutNullStreams, spawn} from "node:child_process";
 import Redis from "ioredis";
 import { SandboxedJob, UnrecoverableError } from 'bullmq';
-import { Browser, Page } from "puppeteer-core";
+import type { Browser, Page } from "puppeteer-core" with { "resolution-mode": "import" };
 import getenv from 'getenv';
 import pino from 'pino';
 import { format }from 'node:util';
@@ -131,6 +131,9 @@ export class BBBLiveStream{
         this.page = await this.browser.newPage();
 
         await this.page.goto(this.joinUrl);
+
+        const version = await this.page.browser().version();
+        logger.info("Browser version: "+version);
 
         try{
             await this.page.locator('[data-test="listenOnlyBtn"], [data-test="helpListenOnlyBtn"]').setTimeout(30000).click();

@@ -1,14 +1,14 @@
-FROM node:22-slim
+FROM node:24-slim
 LABEL authors="samuelweirich"
 
 # Configure default locale (important for chrome-headless-shell).
 ENV LANG en_US.UTF-8
 
-ARG CHROME_VERSION=141.0.7390.122
+ARG CHROME_VERSION=157.0.8103.78
 
 # Install Chrome and other dependencies
 RUN apt-get update \
-    && apt-get install -y fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini \
+    && apt-get install -y fonts-freefont-ttf libxss1 dbus dbus-x11 xauth xvfb ffmpeg psmisc tini unzip \
       --no-install-recommends \
     && npx @puppeteer/browsers install "chrome@${CHROME_VERSION}" --install-deps \
     && rm -rf /var/lib/apt/lists/*
