@@ -10,23 +10,21 @@
   "keywords": [],
   "author": "",
   "devDependencies": {
-    "@types/chrome": "^0.1.24",
+    "@types/chrome": "^0.3.7",
     "@types/getenv": "^1.0.3",
-    "@types/ioredis": "^5.0.0",
     "@types/node": "^24.9.1",
-    "@types/redis": "^4.0.11",
     "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "bullmq": "^5.61.2",
+    "bullmq": "^6.7.7",
     "getenv": "^2.0.0",
-    "ioredis": "^5.8.2",
-    "pino": "^10.1.0",
-    "pino-pretty": "^13.1.2",
-    "puppeteer-core": "^24.26.1",
-    "redis": "^5.9.0",
+    "ioredis": "^6.0.0",
+    "pino": "^10.4.0",
+    "pino-pretty": "^13.2.0",
+    "puppeteer-core": "^25.18.1",
+    "redis": "^6.3.1",
     "xvfb": "^0.4.0"
   }
 }

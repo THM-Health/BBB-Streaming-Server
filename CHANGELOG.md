@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Controller: Option to set minimum number of workers required for the health check to pass ([#258])
 - CI: Workflow to update chrome version ([#291])
 
+### Changed
+- Bumped dependencies
+
 ### Fixed
 - Worker: End worker if a failure occur and CLOSE_ON_FINISH=true ([#265])
 
@@ -20,13 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Dumped dependencies
+- Bumped dependencies
 
 ## [v1.1.0] - 2025-05-12
 
 ### Changed
 
-- Dumped dependencies
+- Bumped dependencies
 
 ### Fixed
 

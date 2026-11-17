@@ -30,12 +30,11 @@
  * SOFTWARE.
  */
 
-import {
-	launch as puppeteerLaunch,
+import type {
 	LaunchOptions,
 	Browser,
 	Page
-} from "puppeteer-core";
+} from "puppeteer-core" with { "resolution-mode": "import" };
 import * as path from "path";
 import { PassThrough } from "stream";
 import WebSocket, { WebSocketServer } from "ws";
@@ -135,7 +134,8 @@ export async function launch(
 		// @ts-ignore
 		browser = await arg1.launch(opts);
 	} else {
-		browser = await puppeteerLaunch(opts);
+		const { launch } = await import("puppeteer-core");
+		browser = await launch(opts);
 	}
 
 	if (opts.allowIncognito) {
@@ -301,7 +301,7 @@ export async function getStream(page: Page, opts: getStreamOptions, consoleLog: 
 
 		async function close() {
 			if (!stream.readableEnded && !stream.writableEnded) stream.end();
-			if (!extension.isClosed() && extension.browser().isConnected()) {
+			if (!extension.isClosed() && extension.browser().connected) {
 				// @ts-ignore
 				extension.evaluate(() => STOP_RECORDING());
 			}
@@ -336,14 +336,14 @@ export async function getStream(page: Page, opts: getStreamOptions, consoleLog: 
 	);
 
 	const mute = () => {
-		if (!extension.isClosed() && extension.browser().isConnected()) {
+		if (!extension.isClosed() && extension.browser().connected) {
 			// @ts-ignore
 			extension.evaluate(() => MUTE());
 		}
 	};
 
 	const unmute = () => {
-		if (!extension.isClosed() && extension.browser().isConnected()) {
+		if (!extension.isClosed() && extension.browser().connected) {
 			// @ts-ignore
 			extension.evaluate(() => UNMUTE());
 		}
