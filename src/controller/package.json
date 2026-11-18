@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node_modules/.bin/ts-node app.ts"
+    "start": "tsx app.ts"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +14,7 @@
     "@types/express": "^5.0.4",
     "@types/getenv": "^1.0.3",
     "@types/node": "^26.6.6",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
   "dependencies": {
