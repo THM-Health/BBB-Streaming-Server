@@ -53,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#265]: https://github.com/THM-Health/BBB-Streaming-Server/pull/265
 
 
-[unreleased]: https://github.com/THM-Health/BBB-Streaming-Server/compare/v1.1.1...main
+[unreleased]: https://github.com/THM-Health/BBB-Streaming-Server/compare/v1.2.0...main
 [v1.0.0]: https://github.com/THM-Health/BBB-Streaming-Server/releases/tag/v1.0.0
 [v1.1.0]: https://github.com/THM-Health/BBB-Streaming-Server/releases/tag/v1.1.0
 [v1.1.1]: https://github.com/THM-Health/BBB-Streaming-Server/releases/tag/v1.1.1
+[v1.2.0]: https://github.com/THM-Health/BBB-Streaming-Server/releases/tag/v1.2.0
