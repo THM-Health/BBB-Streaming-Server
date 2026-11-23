@@ -18,7 +18,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "bullmq": "^6.7.7",
+    "bullmq": "^6.7.8",
     "getenv": "^2.0.0",
     "ioredis": "^6.0.0",
     "pino": "^10.4.0",
